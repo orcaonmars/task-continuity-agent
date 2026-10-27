@@ -10,11 +10,13 @@ security settings are changed, and failure never falls back to elevated tests.
 
 from __future__ import annotations
 
+import codecs
 import ctypes
 import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from contextlib import ExitStack
 from pathlib import Path
 
@@ -31,12 +33,15 @@ def build():
         raise RuntimeError("PowerShell is required for the Windows build.")
     env = dict(os.environ)
     env["TASK_CONTINUITY_TEST_PYTHON"] = sys.executable
-    return subprocess.call(
+    print(f"Starting PowerShell build: {shell}; Python: {sys.executable}.", flush=True)
+    result = subprocess.call(
         [shell, "-NoProfile", "-NonInteractive", "-File", str(ROOT / "scripts/build.ps1")],
         cwd=ROOT,
         env=env,
         creationflags=subprocess.CREATE_NO_WINDOW,
     )
+    print(f"PowerShell build exited with code {result}.", flush=True)
+    return result
 
 
 def run_restricted(command, cwd):
@@ -76,12 +81,14 @@ def run_restricted(command, cwd):
         startup = win32process.STARTUPINFO()
         startup.dwFlags = win32con.STARTF_USESTDHANDLES
         input_stream = cleanup.enter_context(open(os.devnull, "rb"))
-        # GitHub captures output through pipes. Duplicate only the standard handles
-        # needed by this child, without changing the parent's inheritance settings.
+        output_stream = cleanup.enter_context(tempfile.TemporaryFile(mode="w+b"))
+        # Service-runner standard handles may not remain usable after the token
+        # transition. Give the child owned file handles and relay its output after
+        # it exits. Reading only then also preserves the shared file position.
         for field, source in (
             ("hStdInput", msvcrt.get_osfhandle(input_stream.fileno())),
-            ("hStdOutput", win32api.GetStdHandle(win32api.STD_OUTPUT_HANDLE)),
-            ("hStdError", win32api.GetStdHandle(win32api.STD_ERROR_HANDLE)),
+            ("hStdOutput", msvcrt.get_osfhandle(output_stream.fileno())),
+            ("hStdError", msvcrt.get_osfhandle(output_stream.fileno())),
         ):
             handle = owned(
                 win32api.DuplicateHandle(
@@ -94,6 +101,8 @@ def run_restricted(command, cwd):
                 )
             )
             setattr(startup, field, handle)
+        env = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUNBUFFERED="1")
+        print("Starting restricted validation worker.", flush=True)
         process, thread, _, _ = win32process.CreateProcessAsUser(
             restricted,
             command[0],
@@ -102,7 +111,7 @@ def run_restricted(command, cwd):
             None,
             True,
             win32con.CREATE_NO_WINDOW,
-            None,
+            env,
             str(cwd),
             startup,
         )
@@ -111,7 +120,14 @@ def run_restricted(command, cwd):
         while True:
             status = win32event.WaitForSingleObject(process, 1000)
             if status == win32event.WAIT_OBJECT_0:
-                return win32process.GetExitCodeProcess(process)
+                result = win32process.GetExitCodeProcess(process)
+                output_stream.seek(0)
+                decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+                while chunk := output_stream.read(64 * 1024):
+                    print(decoder.decode(chunk), end="", flush=True)
+                print(decoder.decode(b"", final=True), end="", flush=True)
+                print(f"Restricted validation worker exited with code {result}.", flush=True)
+                return result
             if status != win32event.WAIT_TIMEOUT:
                 raise RuntimeError(f"Waiting for the restricted build failed: {status}")
 
@@ -123,6 +139,11 @@ def main(arguments=None):
     if arguments not in ([], ["--standard-user-build"]):
         raise ValueError("Unexpected CI launcher arguments.")
     administrator = is_admin()
+    print(
+        f"CI launcher: administrator membership={administrator}; "
+        f"restricted worker={bool(arguments)}.",
+        flush=True,
+    )
     if arguments == ["--standard-user-build"]:
         if administrator:
             raise RuntimeError("Refusing to run the build as an administrator.")

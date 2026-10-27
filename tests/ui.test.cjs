@@ -37,7 +37,7 @@ class Element {
   prepend(...children) { this.children.unshift(...children); }
   replaceChildren(...children) { this.children = children; }
   setAttribute(key, value) { this.attributes[key] = value; }
-  querySelectorAll() { return []; }
+  querySelectorAll(selector) { return selector === '[data-example]' ? this.exampleButtons || [] : []; }
   addEventListener(name, listener) { this.listeners[name] = listener; }
   focus() {}
 }
@@ -62,6 +62,11 @@ function environment({fetch = async url => idleResponse(url), blockedStorage = f
     [...html.matchAll(/id="([^"]+)"/g)].map(match => [match[1], new Element(match[1])])
   );
   elements.get('hours').value = '10';
+  elements.get('events').exampleButtons = [...html.matchAll(/data-example="([^"]+)"/g)].map(match => {
+    const element = new Element(match[1]);
+    element.dataset.example = match[1];
+    return element;
+  });
   const controls = ['pause', 'resume', 'stop'].map(action => {
     const element = new Element(action);
     element.dataset.action = action;
@@ -118,6 +123,38 @@ test('budgets accept 50 hours and reject empty, non-finite and out-of-range valu
     ui.elements.get('hours').value = value;
     assert.throws(() => ui.run('readHours()'), /0.1 to 72/);
   }
+});
+
+test('the first-task example fills a saved, six-minute draft without starting work', async () => {
+  let posts = 0;
+  const ui = environment({fetch: async (url, options) => {
+    if (options.method === 'POST') posts++;
+    return idleResponse(url);
+  }});
+  await tick();
+  ui.elements.get('events').exampleButtons.find(button => button.dataset.example === 'starter').onclick();
+  assert.match(ui.elements.get('prompt').value, /Create welcome\.txt/);
+  assert.match(ui.elements.get('prompt').value, /Use only file tools/);
+  assert.equal(ui.elements.get('hours').value, '0.1');
+  assert.equal(ui.storage.get('task-continuity-draft:new'), ui.elements.get('prompt').value);
+  const restored = environment({saved: Object.fromEntries(ui.storage)});
+  assert.equal(restored.elements.get('prompt').value, ui.elements.get('prompt').value);
+  assert.equal(restored.elements.get('hours').value, '0.1');
+  assert.match(ui.elements.get('notice').textContent, /six-minute limit/);
+  assert.equal(ui.run('selected'), null);
+  assert.equal(posts, 0);
+});
+
+test('choosing an example preserves an existing draft and its time limit', async () => {
+  const ui = environment();
+  await tick();
+  ui.edit('A project I am still describing');
+  ui.elements.get('hours').value = '50';
+  ui.elements.get('events').exampleButtons.find(button => button.dataset.example === 'starter').onclick();
+  assert.equal(ui.elements.get('prompt').value, 'A project I am still describing');
+  assert.equal(ui.storage.get('task-continuity-draft:new'), 'A project I am still describing');
+  assert.equal(ui.elements.get('hours').value, '50');
+  assert.match(ui.elements.get('notice').textContent, /draft is still/);
 });
 
 test('drafts follow their task, including the separate new-task composer', async () => {
@@ -179,6 +216,8 @@ test('successful sends clear the submitted draft and prevent duplicate in-flight
   ui.edit('a goal');
   ui.elements.get('hours').value = '50';
   const sending = ui.run('send()');
+  assert.equal(ui.elements.get('send').attributes['aria-busy'], 'true');
+  assert.equal(ui.elements.get('send').textContent, 'Starting…');
   await ui.run('send()');
   assert.equal(posts, 1);
   release(response({id: 'created'}));
@@ -187,6 +226,8 @@ test('successful sends clear the submitted draft and prevent duplicate in-flight
   assert.equal(ui.elements.get('prompt').value, '');
   assert.equal(ui.storage.has('task-continuity-draft:new'), false);
   assert.equal(ui.elements.get('send').disabled, false);
+  assert.equal(ui.elements.get('send').attributes['aria-busy'], 'false');
+  assert.equal(ui.elements.get('send').textContent, 'Send follow-up');
 });
 
 test('edits made while starting a task become its unsent follow-up draft', async () => {

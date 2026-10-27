@@ -1,35 +1,53 @@
-# Example tasks
+# Tasks to try
 
-Choose a concrete result and a time budget in the interface. Replace bracketed text before sending. A budget is a maximum: finish when the work is verified.
+Start with the [first-file walkthrough](../00-START-HERE.md). Then choose a small task below and replace anything in brackets before sending it.
 
-## Research and files
+A useful brief says what you want saved, where the work belongs, how to check it, and what the agent should leave alone. Set the time limit in the app; it is a maximum, so checked work can finish early.
 
-> Research [topic] using the web. Save report.md with primary-source links, publication dates, findings, disagreements, and uncertainties. Do not invent citations. Checkpoint progress and verify the final report.
+## Make a simple website
 
-> Clean [input CSV path] into cleaned.csv and write summary.md explaining the changes. Preserve the original. Verify row counts, columns, duplicates, and missing values before finishing.
+> Build a small responsive website for a local repair shop in this task's folder. Include services, opening hours, and a contact section using clearly marked sample details. Keep the source editable and avoid external services. Make the complete first version, check it at desktop and mobile sizes, and fix visible and functional problems. Save README.md with run instructions and a short account of what you checked. Finish with the file paths and any remaining issues. Do not publish anything.
 
-## Local code project
+This is a useful first project after the file test. A vision-capable model can inspect screenshots; a text-only model can still work with source, the page structure, and tests, but cannot approve the appearance from images.
 
-> Audit the project at [project folder]. Prioritize reliability, then effectiveness, then simplicity. Make small reversible fixes and preserve behavior. Run appropriate tests. Checkpoint changed external project files as deliverables. Save audit.md with changes, test evidence, and remaining limitations. Do not publish or push anything.
+## Research a question
 
-Specify whether dependency installation and changes outside the folder are allowed. File-tool edits retain backups; shell commands and third-party tools need their own backup discipline.
+> Research [specific question] using the web. Save report.md in this task's folder with a short answer, primary-source links, publication dates, disagreements, and uncertainties. Separate facts from your interpretation. Do not invent citations. Check that each link supports the claim beside it, then finish with the report's path and anything you could not verify.
 
-## Blender still scene
+A narrow question is easier to check than “research everything about this topic.” Web access sends requests to external sites; local model hosting does not make those requests private.
 
-Enable `capabilities.blender` and load a vision-capable model first.
+## Clean a copy of a CSV
 
-> Build and refine a Blender still scene of [subject], in [style]. Save scene.blend and preview.png. Start with the complete rough scene, render a small preview, inspect defects, and iterate on composition, scale, materials, and lighting. Checkpoint each milestone. Verify the current project and final preview, then record honest quality limitations.
+> Read [full input CSV path]. Preserve that original and save cleaned.csv in this task's folder. Remove exact duplicate rows, keep the existing columns, and flag missing values without guessing replacements. Save summary.md explaining the changes. Verify the before-and-after row counts, column names, duplicates, and missing values. Report anything that needs my decision.
 
-A project save alone does not pass visual completion. The actual current preview must be inspected and quality-reviewed.
+Start with a copy of a small, non-sensitive dataset so you can compare the result yourself.
 
-## Blender animation
+## Improve an existing code project
 
-> Create a 10 second Blender animation at 24 fps and 1920x1080. Save editable scene.blend and final.mp4. Benchmark a short preview before full rendering. Render numbered frames into a new folder for each scene version, resume matching existing frames, encode a contiguous sequence, and inspect samples decoded from the exact final video. Checkpoint progress and verify resolution, frame count, duration, and visible quality.
+> Review the project at [full project folder path]. The problem I want fixed is [specific behavior or error]. Make small reversible changes, preserve unrelated behavior, and run the relevant tests. Record the changed project files as checkpoint deliverables. Save audit.md in this task's folder with the changes, test results, and remaining issues. Do not install dependencies, publish, or push anything without my instruction.
 
-Use settings that fit alongside the model in memory. A new output folder after a scene edit prevents mixing versions. ffmpeg and ffprobe are required for encoding and verification.
+Name any dependencies or changes outside the project that you already allow. File tools keep bounded backups; shell commands and third-party programs need their own backup plan.
 
-## Follow-up and recovery
+## Build a Blender still scene
 
-Select an existing task to refine it. Follow-ups keep the original brief and archive the prior completion. Resume a paused or blocked task after resolving its cause; enter the additional time budget. Inspect uncertain interrupted jobs before retrying, and use a new job name for a changed command.
+First enable `capabilities.blender` in your local settings and use a vision-capable model. See [Blender setup](blender.md).
 
-Do a small smoke task first: create a text file, read it back, and finish with verification. Try a short version of your real task before an overnight run.
+> Build a Blender still scene of [subject] in [style]. Save scene.blend and preview.png in this task's folder. Make a complete rough scene, render a small preview, and inspect it. Improve the composition, scale, materials, and lighting where needed. Save progress at each milestone. Verify the current project and its final preview, then report the file paths and any visible issues that remain.
+
+A saved project is only part of the result: the current rendered preview must also be inspected. Try a still before a long animation.
+
+## Make a short Blender animation
+
+> Create a 10-second Blender animation at 24 fps and 1920×1080. Save editable scene.blend and final.mp4 in this task's folder. Benchmark a short preview before rendering the whole animation. Use a new numbered-frame folder for each scene version, resume only matching existing frames, and encode a contiguous sequence. Inspect samples decoded from the final video. Verify its resolution, frame count, duration, and visible quality, then report any remaining problems.
+
+Video work needs ffmpeg and ffprobe. Leave enough memory for both Blender and the model. New frame folders after scene edits avoid mixing old and new versions.
+
+## Keep working on a saved task
+
+Select the task in the sidebar, write what you want changed, and select **Send follow-up**. For example:
+
+> Keep the existing layout. Make the contact section easier to read on a narrow screen, check the result at mobile size, and update the run instructions if needed. Do not change the sample business details or publish the site.
+
+Use **Resume** to continue saved work without adding a new instruction. It starts a fresh budget from now. A follow-up sent to an active task keeps that task's current deadline; a follow-up to an inactive task gets a fresh budget.
+
+If work was interrupted, inspect the actual files and tracked jobs before retrying. An action may already have finished. Keep a running job and check its status; a changed command needs a new job name.

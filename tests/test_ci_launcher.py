@@ -1,13 +1,15 @@
 """CI privilege reduction must preserve the normal runtime guard and build result."""
 
 import importlib.util
+import io
 import os
 import subprocess
 import sys
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("ci_validate", ROOT / "scripts/ci-validate.py")
@@ -86,9 +88,39 @@ class RestrictedToken(unittest.TestCase):
             "import ctypes,sys;"
             "administrator=bool(ctypes.windll.shell32.IsUserAnAdmin());"
             "print('Native CI token smoke: administrator=',administrator,flush=True);"
+            "print('Captured Unicode: \\u2713',flush=True);"
+            "print('Captured stderr',file=sys.stderr,flush=True);"
             "sys.exit(91 if administrator else 19)",
         ]
-        self.assertEqual(launcher.run_restricted(command, ROOT), 19)
+        output = io.StringIO()
+        # A parent stream without a Windows file handle models the hosted runner's
+        # service output. The child must use its own capture for both channels.
+        with redirect_stdout(output):
+            self.assertEqual(launcher.run_restricted(command, ROOT), 19)
+        captured = output.getvalue()
+        self.assertIn("Starting restricted validation worker.", captured)
+        self.assertIn("administrator= False", captured)
+        self.assertIn("Captured Unicode: \u2713", captured)
+        self.assertIn("Captured stderr", captured)
+        self.assertIn("Restricted validation worker exited with code 19.", captured)
+
+    @unittest.skipUnless(os.name == "nt", "Native Windows token and process APIs")
+    def test_child_traceback_and_split_utf8_are_visible_without_parent_file_handles(self):
+        command = [
+            sys.executable,
+            "-c",
+            "import sys;"
+            "sys.stdout.write('x'*65535+'\\u2713\\n');sys.stdout.flush();"
+            "raise RuntimeError('Restricted child startup diagnostic')",
+        ]
+        output = io.StringIO()
+        with redirect_stdout(output):
+            self.assertEqual(launcher.run_restricted(command, ROOT), 1)
+        captured = output.getvalue()
+        self.assertIn("x" * 65535 + "\u2713\n", captured.replace("\r\n", "\n"))
+        self.assertNotIn("\ufffd", captured)
+        self.assertIn("RuntimeError: Restricted child startup diagnostic", captured)
+        self.assertIn("Restricted validation worker exited with code 1.", captured)
 
     def api(self, error=None):
         token, restricted, process, thread = [Mock() for _ in range(4)]
@@ -149,10 +181,19 @@ class RestrictedToken(unittest.TestCase):
             None,
             True,
             0x08000000,
-            None,
+            ANY,
             str(ROOT),
             fixture.startup,
         )
+        child_env = fixture.processes.CreateProcessAsUser.call_args.args[7]
+        self.assertEqual(child_env["PYTHONIOENCODING"], "utf-8")
+        self.assertEqual(child_env["PYTHONUNBUFFERED"], "1")
+        fixture.api.GetStdHandle.assert_not_called()
+        # stdout and stderr duplicate the same owned capture file; stdin has a
+        # separate null input. No service-runner handle is inherited.
+        duplicated_sources = [call.args[1] for call in fixture.api.DuplicateHandle.call_args_list]
+        self.assertEqual(duplicated_sources[1], duplicated_sources[2])
+        self.assertNotEqual(duplicated_sources[0], duplicated_sources[1])
         self.assertEqual(fixture.startup.hStdInput, fixture.streams[0])
         self.assertEqual(fixture.startup.hStdOutput, fixture.streams[1])
         self.assertEqual(fixture.startup.hStdError, fixture.streams[2])

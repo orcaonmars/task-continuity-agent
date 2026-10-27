@@ -82,6 +82,7 @@
     .examples strong { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; }
     .examples .hint { display: block; font-size: 11px; }
     .welcome-note { font-size: 11px; color: var(--muted); line-height: 1.6; }
+    .welcome-note a { white-space: nowrap; }
     .message { padding: 0 0 23px; margin-bottom: 23px; border-bottom: 1px solid #efefef; white-space: pre-wrap; line-height: 1.8; font-size: 14px; overflow-wrap: anywhere; }
     .message::before { content: attr(data-label); display: block; font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 9px; color: var(--muted); }
     .user { padding: 16px 19px; margin-left: 8%; background: var(--surface); border: 1px solid #ececec; border-radius: 8px; }
@@ -171,7 +172,7 @@
         <button type="button" data-action="resume" title="Continue with saved progress and the time budget below." disabled>Resume</button>
         <button type="button" data-action="stop" class="danger" title="Stop reasoning and cancel background jobs. Saved progress is kept." disabled>Stop</button>
       </div>
-      <a class="guide" href="/guide" target="_blank" rel="noopener">Guide ↗</a>
+      <a class="guide" href="/guide" target="_blank" rel="noopener">Setup &amp; guide ↗</a>
     </header>
 
     <div id="notice" role="status" aria-live="polite"></div>
@@ -180,34 +181,34 @@
 
     <details class="saved">
       <summary>Saved progress &amp; files</summary>
-      <div id="progress">A new task starts with its own durable state.</div>
+      <div id="progress">Your task folder, saved progress, and finished files will appear here.</div>
     </details>
 
     <template id="welcome">
       <div class="welcome">
-        <div class="eyebrow">Room for the long work</div>
+        <div class="eyebrow">Start here</div>
         <h2>What are we working on?</h2>
-        <p class="welcome-copy">Give your local agent a clear goal, a place to work, and a way to check the result. Progress stays on disk so work can pick up after an interruption.</p>
+        <p class="welcome-copy">Tell the agent what you want to finish and how to check it. It saves its progress and files as it works, so you can come back to the same task after an interruption.</p>
         <div class="examples" aria-label="Example tasks">
-          <button type="button" data-example="code"><span class="example-number" aria-hidden="true">01 /</span><strong>Build or improve</strong><span class="hint">Work on a website or codebase.<br>Make changes and verify them.</span></button>
-          <button type="button" data-example="research"><span class="example-number" aria-hidden="true">02 /</span><strong>Research &amp; organize</strong><span class="hint">Compare sources, work with files,<br>and save a useful report.</span></button>
-          <button type="button" data-example="scene"><span class="example-number" aria-hidden="true">03 /</span><strong>Create &amp; refine</strong><span class="hint">Build a scene in Blender.<br>Render, inspect, and improve.</span></button>
+          <button type="button" data-example="starter"><span class="example-number" aria-hidden="true">01 /</span><strong>Try a small task</strong><span class="hint">Save and check a welcome file.<br>A simple first run, ready to send.</span></button>
+          <button type="button" data-example="code"><span class="example-number" aria-hidden="true">02 /</span><strong>Build or improve</strong><span class="hint">Work on a website or codebase.<br>Make changes and check them.</span></button>
+          <button type="button" data-example="research"><span class="example-number" aria-hidden="true">03 /</span><strong>Research &amp; organize</strong><span class="hint">Compare sources and save a report.<br>Requires the optional web tools.</span></button>
         </div>
-        <p class="welcome-note">Files, code, web, desktop, and media. Optional tools are enabled in your configuration.</p>
+        <p class="welcome-note">First time here? <a href="/guide" target="_blank" rel="noopener">Connect your model with the setup guide</a>, then try the small task. Examples fill the message box; you review them before sending.</p>
       </div>
     </template>
     <section id="events" aria-label="Task conversation" tabindex="0"></section>
 
     <footer>
       <div class="composer">
-        <textarea aria-label="Task instructions" aria-describedby="composer-help" id="prompt" placeholder="Describe the goal, working folder, and expected result…"></textarea>
+        <textarea aria-label="Task instructions" aria-describedby="composer-help" id="prompt" placeholder="What should be finished? Add a folder if needed and explain what a good result looks like…"></textarea>
         <div class="composer-bar">
-          <label class="hint" for="hours">Time budget <input id="hours" type="number" value="10" min="0.1" max="72" step="0.1"> hours</label>
+          <label class="hint" for="hours">Time limit <input id="hours" type="number" value="10" min="0.1" max="72" step="0.1" aria-describedby="time-help"> hours</label>
           <button type="button" id="send" class="primary">Send task</button>
         </div>
       </div>
       <div class="composer-note" id="composer-help">
-        <span>A maximum, not a target. Set up to 72 hours for longer work.</span>
+        <span id="time-help">It can finish sooner. 0.1 hours = 6 minutes; maximum 72 hours.</span>
         <span class="shortcut">Ctrl + Enter to send</span>
       </div>
     </footer>
@@ -217,6 +218,7 @@
     let TOKEN = '__TOKEN__';
     const STORAGE_KEY = 'task-continuity-selected';
     const DRAFT_KEY = 'task-continuity-draft';
+    const HOURS_KEY = 'task-continuity-hours';
     const MAX_EVENTS = 500;
     const drafts = new Map();
     let selected = saved(STORAGE_KEY);
@@ -272,14 +274,26 @@
       $('events').replaceChildren($('welcome').content.cloneNode(true));
       $('events').scrollTop = 0;
       const examples = {
-        scene: 'Create and refine a Blender still scene of [subject] in [style]. Save scene.blend and preview.png in the task folder. Build a rough scene first, render a preview, inspect composition, materials and lighting, then improve visible defects. Checkpoint each milestone. Verify the final files and record remaining limitations.',
+        starter: "Create welcome.txt in this task's folder with exactly one line: Task Continuity is ready. Read it back and check that it matches. Use only file tools. Do not browse the web, run shell commands, or change files outside this task folder. Finish by reporting the saved file's full path.",
         research: 'Research [topic] using the web. Save report.md with source links, dates, findings and uncertainties in the task folder. Compare primary sources and verify factual claims. Checkpoint progress and finish with the saved report.',
         code: 'Build or improve [website or project] at [folder]. The desired result is [goal]. Prioritize reliability, then effectiveness, then simplicity. Make small reversible changes, preserve existing behavior, and verify the result with appropriate tests or a browser review. Save the finished project and a concise audit.md with changes, verification and remaining limitations. Checkpoint milestones.'
       };
       for (const button of $('events').querySelectorAll('[data-example]')) {
         button.onclick = () => {
+          if ($('prompt').value.trim()) {
+            $('notice').textContent = 'Your draft is still in the message box. Clear it before choosing an example.';
+            $('prompt').focus();
+            return;
+          }
           $('prompt').value = examples[button.dataset.example];
+          if (button.dataset.example === 'starter') {
+            $('hours').value = '0.1';
+            save(HOURS_KEY, '0.1');
+          }
           storeDraft($('prompt').value);
+          $('notice').textContent = button.dataset.example === 'starter'
+            ? 'First task added with a six-minute limit. Review it below, then choose Send task.'
+            : 'Example added. Replace the parts in [brackets] with your details, then choose Send task.';
           $('prompt').focus();
         };
       }
@@ -389,9 +403,9 @@
       $('outputs').replaceChildren();
       $('timing').textContent = '';
       $('notice').textContent = '';
-      $('progress').textContent = 'New task · no old checkpoint selected.';
+      $('progress').textContent = 'Your task folder, saved progress, and finished files will appear here.';
       $('send').textContent = 'Send task';
-      $('prompt').placeholder = 'Describe the goal, working folder, and expected result…';
+      $('prompt').placeholder = 'What should be finished? Add a folder if needed and explain what a good result looks like…';
     }
 
     function newTask() {
@@ -561,12 +575,13 @@
         const info = state.model || {};
         $('status').dataset.state = info.error ? 'offline' : 'online';
         $('status').textContent = info.error
-          ? 'Local model unavailable · supervisor is still running'
+          ? 'Model unavailable · open Setup & guide'
           : (info.model || 'No loaded model') +
             ' · ' +
             (info.vision ? 'vision ready' : 'text only') +
             ' · ' +
             (info.provider || 'local');
+        $('status').title = info.error || 'The supervisor is connected. Your model handles the task instructions.';
 
         renderTasks(state.tasks || []);
         await renderSelectedTask();
@@ -600,6 +615,8 @@
       const version = selectionVersion;
       storeDraft($('prompt').value);
       $('send').disabled = true;
+      $('send').setAttribute('aria-busy', 'true');
+      $('send').textContent = taskId ? 'Sending…' : 'Starting…';
 
       try {
         const hours = readHours();
@@ -633,6 +650,8 @@
         if (version === selectionVersion) $('notice').textContent = error.message;
       } finally {
         $('send').disabled = false;
+        $('send').setAttribute('aria-busy', 'false');
+        $('send').textContent = selected ? 'Send follow-up' : 'Send task';
       }
     }
 
@@ -655,6 +674,11 @@
 
     $('new-task').onclick = newTask;
     $('send').onclick = send;
+    const savedHours = Number(saved(HOURS_KEY));
+    if (Number.isFinite(savedHours) && savedHours >= 0.1 && savedHours <= 72) {
+      $('hours').value = String(savedHours);
+    }
+    $('hours').addEventListener('input', () => save(HOURS_KEY, $('hours').value));
     const legacyDraft = saved(DRAFT_KEY);
     if (legacyDraft) {
       if (!draftFor(selected)) storeDraft(legacyDraft);

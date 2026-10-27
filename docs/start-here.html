@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Guide · Task Continuity Agent</title>
+  <title>Setup &amp; guide · Task Continuity Agent</title>
   <style>
     :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #181818; background: #fff; }
     * { box-sizing: border-box; }
@@ -13,6 +13,7 @@
     .eyebrow { color: #666; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
     h1 { font-size: clamp(28px, 5vw, 40px); font-weight: 500; letter-spacing: -.04em; line-height: 1.2; margin: 18px 0; }
     h2 { margin: 0 0 12px; font-size: 21px; font-weight: 600; letter-spacing: -.02em; }
+    h3 { margin: 22px 0 8px; font-size: 16px; }
     p { margin: 12px 0; }
     .intro { color: #666; max-width: 620px; }
     a { color: inherit; text-underline-offset: 4px; }
@@ -23,7 +24,11 @@
     ol, ul { padding-left: 24px; }
     li { padding-left: 3px; margin: 9px 0; }
     code { font: .88em/1.5 Consolas, monospace; background: #f5f5f5; border-radius: 4px; padding: 2px 5px; overflow-wrap: anywhere; }
-    dl { display: grid; grid-template-columns: 110px 1fr; gap: 14px 18px; margin: 20px 0; }
+    pre { margin: 16px 0; background: #f5f5f5; border-radius: 5px; padding: 16px; overflow: auto; line-height: 1.5; }
+    pre code { padding: 0; border-radius: 0; overflow-wrap: normal; }
+    blockquote { margin: 16px 0; padding: 16px 20px; border-left: 2px solid #181818; background: #f7f7f7; }
+    blockquote p { margin: 0; }
+    dl { display: grid; grid-template-columns: 130px 1fr; gap: 14px 18px; margin: 20px 0; }
     dt { font-weight: 600; }
     dd { margin: 0; }
     .note { background: #f7f7f7; border-left: 2px solid #181818; padding: 12px 16px; }
@@ -35,64 +40,99 @@
   <main>
     <header>
       <div class="eyebrow">Task Continuity · Guide</div>
-      <h1>Give the work a clear finish.</h1>
-      <p class="intro">A local workspace for coding, files, research, desktop work, and optional Blender. The agent saves the objective, checks its outputs, and keeps a next step for recovery.</p>
+      <h1>Start small. See it work.</h1>
+      <p class="intro">Make one text file first. Once the model can write it, read it back, and finish, you have a useful starting point for a bigger task.</p>
       <p><a href="/">Return to workspace</a></p>
     </header>
     <nav aria-label="Guide contents">
-      <a href="#setup">Setup</a><a href="#start">Start a task</a><a href="#controls">Controls</a><a href="#saved">Saved work</a><a href="#recovery">Recovery</a><a href="#boundaries">Boundaries</a>
+      <a href="#setup">Setup</a><a href="#first-task">Your first task</a><a href="#brief">Write a brief</a><a href="#controls">Controls</a><a href="#saved">Saved work</a><a href="#help">Troubleshooting</a><a href="#recovery">Recovery</a><a href="#boundaries">Before longer work</a>
     </nav>
 
     <section id="setup" aria-labelledby="setup-heading">
-      <h2 id="setup-heading">Setup</h2>
+      <h2 id="setup-heading">Get the app and model ready</h2>
+      <p>You need Windows 10 or 11, <a href="https://www.python.org/downloads/windows/" target="_blank" rel="noopener">Python 3.11 or later</a>, and a local model that supports <strong>tool use</strong>. Tool use lets the model ask the app to read or write files and perform actions. A model that only chats may describe the right steps without doing them.</p>
       <ol>
-        <li>Run <code>install.ps1</code> as your normal Windows user.</li>
-        <li>Load a model trained for tool use in LM Studio, or configure a compatible local streaming backend in <code>data/config.json</code>.</li>
-        <li>Run <code>start-agent.ps1</code> or the Desktop shortcut. The interface listens on <code>127.0.0.1</code>; change <code>ui_port</code> if its port is occupied.</li>
-        <li>Try a small task that writes a text file and reads it back before attempting longer work.</li>
+        <li>Extract the project into a writable folder. Open it in File Explorer, type <code>powershell</code> in the address bar, and press Enter. Use a normal window, not “Run as administrator.”</li>
+        <li>Run the installer below. Wait for “installed and validated.” It downloads Python dependencies, checks the installation, creates <code>data/config.json</code>, and adds a Desktop shortcut.</li>
       </ol>
-      <p>For visual work, use a model and backend that accept image inputs. Blender is optional and disabled by default. Configuration details are in <code>docs/configuration.md</code> in the source folder.</p>
+      <pre><code>powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1</code></pre>
+      <p>In <a href="https://lmstudio.ai/" target="_blank" rel="noopener">LM Studio</a>, load a tool-capable model, open <strong>Developer</strong>, and switch on <strong>Start server</strong>. The default address is <code>http://127.0.0.1:1234/v1</code>. For your first run, load just the model you want to use. Models and LM Studio are separate downloads. Its <a href="https://lmstudio.ai/docs/developer/core/server" target="_blank" rel="noopener">server guide</a> shows the controls.</p>
+      <p>Then run this from the project folder, or use the Desktop shortcut:</p>
+      <pre><code>powershell -NoProfile -ExecutionPolicy Bypass -File .\start-agent.ps1</code></pre>
+      <p>The launcher normally opens <code>http://127.0.0.1:8765/</code>. Other local model servers need settings described in <code>docs/configuration.md</code> and may differ in compatibility. Blender and extra integrations can wait until this first test works.</p>
     </section>
 
-    <section id="start" aria-labelledby="start-heading">
-      <h2 id="start-heading">Start a task</h2>
-      <p>Select <strong>New task</strong>, describe the result, choose a time budget, and select <strong>Send task</strong>. Include the work folder, expected files, checks that define success, and any boundaries such as preserving originals or keeping the work local.</p>
-      <p>The budget accepts <strong>0.1–72 hours</strong>, including <strong>50 hours</strong> for longer projects. Verified work ends early. A larger budget does not make an unsupported model or backend compatible.</p>
-      <p>Start with a complete first version, then ask for inspection and refinement. The welcome examples cover code, research, and Blender; more detailed briefs are in <code>docs/example-tasks.md</code>.</p>
+    <section id="first-task" aria-labelledby="first-task-heading">
+      <h2 id="first-task-heading">Make your first file</h2>
+      <ol>
+        <li>Return to the workspace and select <strong>New task</strong>.</li>
+        <li>Set <strong>Time limit</strong> to <strong>0.1 hours</strong>. That is a maximum of six minutes; checked work can finish sooner.</li>
+        <li>Paste the instruction below, or select the first-task example in the welcome screen. Review it, then select <strong>Send task</strong>.</li>
+      </ol>
+      <blockquote><p>Create welcome.txt in this task's folder with exactly one line: Task Continuity is ready. Read it back and check that it matches. Use only file tools. Do not browse the web, run shell commands, or change files outside this task folder. Finish by reporting the saved file's full path.</p></blockquote>
+      <p>A successful run ends with <strong>Completed</strong> and a reported <code>welcome.txt</code>. Select <strong>Open welcome.txt</strong> and check its contents:</p>
+      <pre><code>Task Continuity is ready.</code></pre>
+      <p>The file normally lives at <code>data/Tasks/&lt;task-id&gt;/welcome.txt</code> inside this installation. Each task gets its own folder. Its full path appears in the saved progress details; if no output button appears, use that path or the one reported in the conversation.</p>
+      <p>If the model only explains how to make the file, the test has not passed. See <a href="#help">troubleshooting</a> before trying a larger task.</p>
+    </section>
+
+    <section id="brief" aria-labelledby="brief-heading">
+      <h2 id="brief-heading">Give the next task a clear finish</h2>
+      <p>Say what you want saved, where it belongs, how it should be checked, and what the agent should leave alone. For example:</p>
+      <blockquote><p>Make a simple repair-shop website in this task's folder, using clearly marked sample details. Include services, opening hours, and contact information. Check it at desktop and mobile sizes, fix problems you find, and save run instructions. Do not publish it.</p></blockquote>
+      <p>A model that accepts images can review screenshots and rendered previews. Text-only models can work with files, page structure, and tests, but cannot judge images. More briefs are in <code>docs/example-tasks.md</code>.</p>
+      <p>Time limits range from <strong>0.1 to 72 hours</strong>, including 50 hours. Start with a short version of your real task before leaving it overnight.</p>
     </section>
 
     <section id="controls" aria-labelledby="controls-heading">
-      <h2 id="controls-heading">Controls</h2>
+      <h2 id="controls-heading">Pause, stop, or ask for a change</h2>
       <dl>
-        <dt>Pause</dt><dd>Stops reasoning. Already-started background jobs may continue. The existing deadline still runs.</dd>
-        <dt>Resume</dt><dd>Continues from saved progress and starts a fresh budget from now using the hours in the composer.</dd>
-        <dt>Stop</dt><dd>Cancels reasoning and the task's owned jobs. Saved progress and outputs remain available.</dd>
-        <dt>Follow-up</dt><dd>Select a saved task, enter the next instruction, and select <strong>Send follow-up</strong>. An active task keeps its current deadline; an inactive task receives a fresh budget.</dd>
+        <dt>Pause</dt><dd>Stops reasoning. Already-started jobs may keep running, and the existing deadline keeps counting down.</dd>
+        <dt>Resume</dt><dd>Continues from saved progress with a fresh budget from now, using the hours you have selected.</dd>
+        <dt>Stop</dt><dd>Cancels the task and its owned jobs. Saved files remain available.</dd>
+        <dt>Follow-up</dt><dd>Select a saved task, enter the change you want, and select <strong>Send follow-up</strong>. An active task keeps its current deadline; an inactive task gets a fresh budget.</dd>
       </dl>
-      <p>One task controls the computer at a time. Closing the browser tab leaves the agent running.</p>
+      <p>Only one task controls the computer at a time. Closing the browser tab leaves the agent running.</p>
     </section>
 
     <section id="saved" aria-labelledby="saved-heading">
-      <h2 id="saved-heading">Find saved work</h2>
-      <p>Choose a task in the sidebar to see its status, conversation, saved progress, and reported outputs. Its actual folder is shown in the workspace. Tasks normally live under <code>data/Tasks</code>; an explicitly selected external project can contain the edited files.</p>
-      <p>Checkpoints, original briefs, tool receipts, job logs, and verified results survive model-session restarts. Inspect the actual outputs before accepting a result. File-tool backups and log rotation are bounded. There is no total disk quota: outputs, downloads, and context archives are retained.</p>
+      <h2 id="saved-heading">Find your saved work</h2>
+      <p>Select a task in the sidebar to see its conversation, progress, and reported outputs. The saved progress details include its full folder path. Tasks normally live under <code>data/Tasks</code>; if you name an external project, the changed files can be there instead.</p>
+      <p>The agent keeps the original brief, checkpoints, job records, and outputs across model-session restarts. Check the actual files before accepting the result.</p>
+      <p>File-tool backups and logs are bounded, but outputs, downloads, and context archives stay on disk. There is no total storage quota. Check free space and remove old tasks when you no longer need them.</p>
+    </section>
+
+    <section id="help" aria-labelledby="help-heading">
+      <h2 id="help-heading">If something gets stuck</h2>
+      <dl>
+        <dt>Python missing</dt><dd>Install Python 3.11 or later with the <code>python</code> command available. Reopen PowerShell, check <code>python --version</code>, and rerun the installer.</dd>
+        <dt>Administrator error</dt><dd>Close that window and open an ordinary PowerShell window from the project folder.</dd>
+        <dt>Model unavailable</dt><dd>Check that the local server is running and a tool-capable model is loaded. A saved task keeps its selected model; reload that same model if needed.</dd>
+        <dt>No file created</dt><dd>Check that your model supports tool calls through your server. Try the first-file task in a new task. A text answer alone does not show that tools work.</dd>
+        <dt>Port occupied</dt><dd>Before launching, change <code>ui_port</code> in <code>data/config.json</code> to an unused port such as <code>8766</code>. Rerun the launcher and use the address it prints.</dd>
+        <dt>App will not open</dt><dd>Run <code>start-agent.ps1</code> in PowerShell to read the error. Startup details are in <code>data/Logs/supervisor-error.log</code>.</dd>
+      </dl>
+      <p>For a setup report, run this from the project folder:</p>
+      <pre><code>powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\doctor.ps1</code></pre>
+      <p>The doctor checks the runtime, server, settings, and optional tools. Missing optional tools do not prevent the text-file test. Remove private paths and task contents from any logs you share when asking for help.</p>
     </section>
 
     <section id="recovery" aria-labelledby="recovery-heading">
-      <h2 id="recovery-heading">Recover a task</h2>
-      <p>If the supervisor stops, use the normal launcher again. Eligible interrupted tasks recover from saved state while their deadline remains valid. Completed, paused, blocked, stopped, and expired tasks need an explicit continuation.</p>
-      <p>If a task is waiting for its model, reload the model it selected or explicitly change <code>preferred_model</code>. Once a task selects a model, changing the server's model order does not change that choice.</p>
-      <p>Before retrying an interrupted action, inspect its files and tracked jobs: it may already have executed. Poll a running job instead of launching it again; changed commands need a new job name. Resolve a reported blocker, then use Resume or a follow-up.</p>
-      <p class="note">Keep the computer powered and check free space. Recovery cannot preserve running processes through power loss or Windows shutdown. Automatic recovery has limits and may need your intervention.</p>
+      <h2 id="recovery-heading">Pick up interrupted work</h2>
+      <p>If the app stops, use the normal launcher again. Eligible interrupted tasks recover from saved work while their deadline remains valid. Completed, paused, blocked, stopped, and expired tasks need <strong>Resume</strong> or a follow-up.</p>
+      <p>A task remembers its model. Reload that model if it becomes unavailable, or explicitly change <code>preferred_model</code> in the local settings. Changing the server's model order does not change an existing task's choice.</p>
+      <p>Before retrying an interrupted action, inspect the files and tracked jobs: it may already have finished. Check a running job instead of launching it again. A changed command needs a new job name.</p>
     </section>
 
     <section id="boundaries" aria-labelledby="boundaries-heading">
-      <h2 id="boundaries-heading">Use recoverable work</h2>
-      <p>The agent uses your Windows account's permissions. It is experimental software and is not a security sandbox. Keep backups; shell commands and third-party tools do not inherit file-tool backup guarantees.</p>
-      <p>Desktop input needs Windows signed in and unlocked. Login, CAPTCHA, purchases, publishing, external messages, and privilege changes require your direct authorization or action where applicable. Capability switches limit available tool groups, not the account's underlying authority.</p>
+      <h2 id="boundaries-heading">Before longer work</h2>
+      <p>Keep backups and use files you can recover. The agent runs with your Windows account's permissions and is not a security sandbox. Shell commands and third-party programs do not inherit file-tool backup guarantees.</p>
+      <p>Keep the computer powered; recovery cannot keep processes alive through power loss or Windows shutdown. Desktop input needs Windows signed in and unlocked. Login, CAPTCHA, purchases, publishing, external messages, and privilege changes need your authorization or action where applicable.</p>
+      <p>Local model hosting does not keep web requests or configured integrations offline. The interface itself listens only on this computer by default.</p>
+      <p class="note">This experimental release has not had a full overnight or 50-hour endurance test. Recovery and output checks help, but still inspect the result. See <code>RELEASE-STATUS.md</code> for the checks actually run and their limits.</p>
     </section>
 
-    <footer>See the source folder's README and RELEASE-STATUS.md for setup details, verification evidence, and current limitations.</footer>
+    <footer>Created by <a href="https://github.com/orcaonmars">orcaonmars</a>. The source folder's README has links to configuration, examples, and contribution guides.</footer>
   </main>
 </body>
 </html>
