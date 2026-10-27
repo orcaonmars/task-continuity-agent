@@ -6,10 +6,10 @@ import os
 import subprocess
 import sys
 import unittest
-from contextlib import redirect_stdout
+from contextlib import ExitStack, redirect_stdout
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import ANY, Mock, patch
+from unittest.mock import ANY, MagicMock, Mock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("ci_validate", ROOT / "scripts/ci-validate.py")
@@ -82,6 +82,9 @@ class CIEntryPoint(unittest.TestCase):
 class RestrictedToken(unittest.TestCase):
     @unittest.skipUnless(os.name == "nt", "Native Windows token and process APIs")
     def test_real_restricted_child_is_non_admin_and_preserves_failure_exit_code(self):
+        import win32api
+        import win32service
+
         command = [
             sys.executable,
             "-c",
@@ -90,18 +93,37 @@ class RestrictedToken(unittest.TestCase):
             "print('Native CI token smoke: administrator=',administrator,flush=True);"
             "print('Captured Unicode: \\u2713',flush=True);"
             "print('Captured stderr',file=sys.stderr,flush=True);"
+            "import win32api,win32con,win32service;"
+            "desktop=win32service.GetThreadDesktop(win32api.GetCurrentThreadId());"
+            "print('Native desktop:',win32service.GetUserObjectInformation(desktop,win32con.UOI_NAME));"
+            "desktop.Detach();"
             "sys.exit(91 if administrator else 19)",
         ]
         output = io.StringIO()
         # A parent stream without a Windows file handle models the hosted runner's
         # service output. The child must use its own capture for both channels.
-        with redirect_stdout(output):
-            self.assertEqual(launcher.run_restricted(command, ROOT), 19)
+        previous_station = win32service.GetProcessWindowStation()
+        previous_desktop = win32service.GetThreadDesktop(win32api.GetCurrentThreadId())
+        try:
+            with redirect_stdout(output):
+                self.assertEqual(launcher.run_restricted(command, ROOT), 19)
+            current_station = win32service.GetProcessWindowStation()
+            current_desktop = win32service.GetThreadDesktop(win32api.GetCurrentThreadId())
+            try:
+                self.assertEqual(int(current_station), int(previous_station))
+                self.assertEqual(int(current_desktop), int(previous_desktop))
+            finally:
+                current_station.Detach()
+                current_desktop.Detach()
+        finally:
+            previous_station.Detach()
+            previous_desktop.Detach()
         captured = output.getvalue()
         self.assertIn("Starting restricted validation worker.", captured)
         self.assertIn("administrator= False", captured)
         self.assertIn("Captured Unicode: \u2713", captured)
         self.assertIn("Captured stderr", captured)
+        self.assertIn("Native desktop: continuity-", captured)
         self.assertIn("Restricted validation worker exited with code 19.", captured)
 
     @unittest.skipUnless(os.name == "nt", "Native Windows token and process APIs")
@@ -167,7 +189,10 @@ class RestrictedToken(unittest.TestCase):
     def test_reduces_own_token_preserves_logs_and_closes_every_handle(self):
         fixture = self.api()
         command = ["C:/Python/python.exe", "C:/project with spaces/worker.py"]
-        with patch.dict(sys.modules, fixture.modules):
+        with (
+            patch.dict(sys.modules, fixture.modules),
+            patch.object(launcher, "private_desktop", return_value="owned-station\\owned-desktop"),
+        ):
             self.assertEqual(launcher.run_restricted(command, ROOT), 23)
         fixture.security.OpenProcessToken.assert_called_once_with("current-process", 11)
         fixture.security.CreateRestrictedToken.assert_called_once_with(
@@ -195,6 +220,7 @@ class RestrictedToken(unittest.TestCase):
         self.assertEqual(duplicated_sources[1], duplicated_sources[2])
         self.assertNotEqual(duplicated_sources[0], duplicated_sources[1])
         self.assertEqual(fixture.startup.hStdInput, fixture.streams[0])
+        self.assertEqual(fixture.startup.lpDesktop, "owned-station\\owned-desktop")
         self.assertEqual(fixture.startup.hStdOutput, fixture.streams[1])
         self.assertEqual(fixture.startup.hStdError, fixture.streams[2])
         for handle in [fixture.token, fixture.restricted, fixture.process, fixture.thread, *fixture.streams]:
@@ -204,6 +230,7 @@ class RestrictedToken(unittest.TestCase):
         fixture = self.api(OSError("restricted process launch denied"))
         with (
             patch.dict(sys.modules, fixture.modules),
+            patch.object(launcher, "private_desktop", return_value="owned-station\\owned-desktop"),
             patch.object(launcher, "build") as build,
             self.assertRaisesRegex(OSError, "launch denied"),
         ):
@@ -212,6 +239,96 @@ class RestrictedToken(unittest.TestCase):
         build.assert_not_called()
         for handle in [fixture.token, fixture.restricted, *fixture.streams]:
             handle.Close.assert_called_once_with()
+
+
+class PrivateDesktop(unittest.TestCase):
+    def api(self, error=None):
+        previous_station, station, desktop = [Mock() for _ in range(3)]
+        previous_desktop, current_desktop = MagicMock(), MagicMock()
+        previous_desktop.__int__.return_value = 100
+        current_desktop.__int__.return_value = 101
+        service = Mock()
+        service.GetProcessWindowStation.return_value = previous_station
+        service.GetThreadDesktop.side_effect = [previous_desktop, current_desktop]
+        service.CreateWindowStation.return_value = station
+        service.CreateDesktop.return_value = desktop
+        service.GetUserObjectInformation.return_value = "accessible-station"
+        if error:
+            service.CreateDesktop.side_effect = error
+        security = Mock()
+        security.GetTokenInformation.return_value = ("current-user-sid", 0)
+        attributes = SimpleNamespace()
+        security.SECURITY_ATTRIBUTES.return_value = attributes
+        constants = SimpleNamespace(GENERIC_ALL=0x10000000, UOI_NAME=2)
+        modules = {"win32api": Mock(), "win32con": constants,
+                   "win32security": security, "win32service": service}
+        return SimpleNamespace(**locals())
+
+    def test_owned_station_and_desktop_only_allow_current_user_and_live_until_cleanup(self):
+        fixture = self.api()
+        with (
+            patch.dict(sys.modules, fixture.modules),
+            patch.object(launcher, "is_admin", return_value=True),
+            patch.object(launcher.uuid, "uuid4", return_value=SimpleNamespace(hex="unique")),
+        ):
+            with ExitStack() as cleanup:
+                self.assertEqual(
+                    launcher.private_desktop("own-token", cleanup),
+                    "task-continuity-ci-unique\\continuity-unique",
+                )
+                fixture.station.CloseWindowStation.assert_not_called()
+                fixture.desktop.CloseDesktop.assert_not_called()
+                fixture.previous_station.SetProcessWindowStation.assert_called_once_with()
+                fixture.previous_desktop.SetThreadDesktop.assert_called_once_with()
+            fixture.station.CloseWindowStation.assert_called_once_with()
+            fixture.desktop.CloseDesktop.assert_called_once_with()
+        fixture.security.ACL.return_value.AddAccessAllowedAce.assert_called_once_with(
+            fixture.security.ACL_REVISION, 0x10000000, "current-user-sid"
+        )
+        fixture.service.CreateWindowStation.assert_called_once_with(
+            "task-continuity-ci-unique", 1, 0x10000000, fixture.attributes
+        )
+        fixture.service.CreateDesktop.assert_called_once_with(
+            "continuity-unique", 0, 0x10000000, fixture.attributes
+        )
+        self.assertFalse(fixture.attributes.bInheritHandle)
+        fixture.previous_station.CloseWindowStation.assert_not_called()
+        fixture.previous_desktop.CloseDesktop.assert_not_called()
+        for handle in (fixture.station, fixture.desktop, fixture.previous_station,
+                       fixture.previous_desktop, fixture.current_desktop):
+            handle.Detach.assert_called_once_with()
+
+    def test_desktop_creation_error_restores_parent_and_closes_only_owned_station(self):
+        fixture = self.api(OSError("private desktop creation failed"))
+        with (
+            patch.dict(sys.modules, fixture.modules),
+            patch.object(launcher, "is_admin", return_value=True),
+            self.assertRaisesRegex(OSError, "private desktop creation failed"),
+            ExitStack() as cleanup,
+        ):
+            launcher.private_desktop("own-token", cleanup)
+        fixture.previous_station.SetProcessWindowStation.assert_called_once_with()
+        fixture.previous_desktop.SetThreadDesktop.assert_called_once_with()
+        fixture.station.CloseWindowStation.assert_called_once_with()
+        fixture.previous_station.CloseWindowStation.assert_not_called()
+        fixture.previous_desktop.CloseDesktop.assert_not_called()
+        fixture.desktop.CloseDesktop.assert_not_called()
+
+    def test_non_admin_uses_new_desktop_on_existing_accessible_station(self):
+        fixture = self.api()
+        with (
+            patch.dict(sys.modules, fixture.modules),
+            patch.object(launcher, "is_admin", return_value=False),
+            patch.object(launcher.uuid, "uuid4", return_value=SimpleNamespace(hex="unique")),
+            ExitStack() as cleanup,
+        ):
+            self.assertEqual(
+                launcher.private_desktop("own-token", cleanup),
+                "accessible-station\\continuity-unique",
+            )
+        fixture.service.CreateWindowStation.assert_not_called()
+        fixture.desktop.CloseDesktop.assert_called_once_with()
+        fixture.previous_station.CloseWindowStation.assert_not_called()
 
 
 if __name__ == "__main__":

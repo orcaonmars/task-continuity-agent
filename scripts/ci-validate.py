@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import uuid
 from contextlib import ExitStack
 from pathlib import Path
 
@@ -42,6 +43,74 @@ def build():
     )
     print(f"PowerShell build exited with code {result}.", flush=True)
     return result
+
+
+def private_desktop(token, cleanup):
+    """Keep the reduced token off an administrator-only service desktop.
+
+    Only newly created objects receive an ACL. The runner's existing window
+    station and desktop are restored unchanged before any child is launched.
+    """
+    import win32api
+    import win32con
+    import win32security
+    import win32service
+
+    def keep(handle, close_method):
+        def close():
+            try:
+                getattr(handle, close_method)()
+            finally:
+                handle.Detach()
+
+        cleanup.callback(close)
+        return handle
+
+    user = win32security.GetTokenInformation(token, win32security.TokenUser)[0]
+    acl = win32security.ACL()
+    acl.AddAccessAllowedAce(win32security.ACL_REVISION, win32con.GENERIC_ALL, user)
+    descriptor = win32security.SECURITY_DESCRIPTOR()
+    descriptor.SetSecurityDescriptorDacl(True, acl, False)
+    attributes = win32security.SECURITY_ATTRIBUTES()
+    attributes.SECURITY_DESCRIPTOR = descriptor
+    # Do not inherit station/desktop handles: lpDesktop selects the sole intended
+    # objects explicitly, avoiding Windows' ambiguous inherited-handle selection.
+    attributes.bInheritHandle = False
+    previous_station = win32service.GetProcessWindowStation()
+    previous_desktop = win32service.GetThreadDesktop(win32api.GetCurrentThreadId())
+    try:
+        if is_admin():
+            station_name = "task-continuity-ci-" + uuid.uuid4().hex
+            station = keep(
+                win32service.CreateWindowStation(
+                    station_name, 1, win32con.GENERIC_ALL, attributes  # CWF_CREATE_ONLY
+                ),
+                "CloseWindowStation",
+            )
+            station.SetProcessWindowStation()
+        else:
+            # Non-admin callers already have an accessible station, and Windows
+            # reserves creation of named stations for administrators.
+            station_name = win32service.GetUserObjectInformation(previous_station, win32con.UOI_NAME)
+        try:
+            desktop_name = "continuity-" + uuid.uuid4().hex
+            keep(
+                win32service.CreateDesktop(desktop_name, 0, win32con.GENERIC_ALL, attributes),
+                "CloseDesktop",
+            )
+        finally:
+            previous_station.SetProcessWindowStation()
+            current_desktop = win32service.GetThreadDesktop(win32api.GetCurrentThreadId())
+            try:
+                if int(current_desktop) != int(previous_desktop):
+                    previous_desktop.SetThreadDesktop()
+            finally:
+                current_desktop.Detach()
+    finally:
+        # GetProcessWindowStation/GetThreadDesktop return borrowed handles.
+        previous_desktop.Detach()
+        previous_station.Detach()
+    return station_name + "\\" + desktop_name
 
 
 def run_restricted(command, cwd):
@@ -80,6 +149,7 @@ def run_restricted(command, cwd):
         )
         startup = win32process.STARTUPINFO()
         startup.dwFlags = win32con.STARTF_USESTDHANDLES
+        startup.lpDesktop = private_desktop(token, cleanup)
         input_stream = cleanup.enter_context(open(os.devnull, "rb"))
         output_stream = cleanup.enter_context(tempfile.TemporaryFile(mode="w+b"))
         # Service-runner standard handles may not remain usable after the token
