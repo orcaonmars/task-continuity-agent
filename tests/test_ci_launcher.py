@@ -6,7 +6,7 @@ import os
 import subprocess
 import sys
 import unittest
-from contextlib import ExitStack, redirect_stdout
+from contextlib import ExitStack, nullcontext, redirect_stdout
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import ANY, MagicMock, Mock, patch
@@ -80,6 +80,57 @@ class CIEntryPoint(unittest.TestCase):
 
 
 class RestrictedToken(unittest.TestCase):
+    @unittest.skipUnless(os.name == "nt", "Native Windows token and process APIs")
+    def test_admin_only_object_defaults_fail_until_new_restricted_token_is_repaired(self):
+        import win32api
+        import win32con
+        import win32security
+
+        source = win32security.OpenProcessToken(
+            win32api.GetCurrentProcess(), win32con.TOKEN_DUPLICATE | win32con.TOKEN_QUERY
+        )
+        try:
+            original = win32security.GetTokenInformation(source, win32security.TokenDefaultDacl)
+            original_aces = [original.GetAce(index) for index in range(original.GetAceCount())]
+            for repair in (False, True):
+                # Simulate elevated/service object defaults using a private copy;
+                # the test never modifies the current process's primary token.
+                duplicate = win32security.DuplicateTokenEx(
+                    source, win32security.SecurityImpersonation,
+                    win32con.TOKEN_ALL_ACCESS, win32security.TokenPrimary,
+                )
+                acl = win32security.ACL()
+                for kind in (win32security.WinBuiltinAdministratorsSid, win32security.WinLocalSystemSid):
+                    acl.AddAccessAllowedAce(
+                        win32security.ACL_REVISION, win32con.GENERIC_ALL,
+                        win32security.CreateWellKnownSid(kind, None),
+                    )
+                win32security.SetTokenInformation(duplicate, win32security.TokenDefaultDacl, acl)
+                output = io.StringIO()
+                with (
+                    patch.object(win32security, "OpenProcessToken", return_value=duplicate),
+                    nullcontext() if repair else patch.object(launcher, "configure_restricted_dacl"),
+                    redirect_stdout(output),
+                ):
+                    result = launcher.run_restricted(
+                        [sys.executable, "-c", "import ctypes,sys;"
+                         "print('Repaired child administrator=',bool(ctypes.windll.shell32.IsUserAnAdmin()));"
+                         "sys.exit(23)"], ROOT,
+                    )
+                if repair:
+                    self.assertEqual(result, 23)
+                    self.assertIn("user full access=False", output.getvalue())
+                    self.assertIn("Repaired child administrator= False", output.getvalue())
+                else:
+                    self.assertEqual(result & 0xffffffff, 0xC0000142)
+                    self.assertNotIn("Repaired child administrator=", output.getvalue())
+            unchanged = win32security.GetTokenInformation(source, win32security.TokenDefaultDacl)
+            self.assertEqual(
+                [unchanged.GetAce(index) for index in range(unchanged.GetAceCount())], original_aces
+            )
+        finally:
+            source.Close()
+
     @unittest.skipUnless(os.name == "nt", "Native Windows token and process APIs")
     def test_real_restricted_child_is_non_admin_and_preserves_failure_exit_code(self):
         import win32api
@@ -165,6 +216,7 @@ class RestrictedToken(unittest.TestCase):
             TOKEN_DUPLICATE=2,
             TOKEN_QUERY=8,
             TOKEN_ASSIGN_PRIMARY=1,
+            TOKEN_ADJUST_DEFAULT=128,
             STARTF_USESTDHANDLES=256,
             DUPLICATE_SAME_ACCESS=2,
             CREATE_NO_WINDOW=0x08000000,
@@ -192,12 +244,14 @@ class RestrictedToken(unittest.TestCase):
         with (
             patch.dict(sys.modules, fixture.modules),
             patch.object(launcher, "private_desktop", return_value="owned-station\\owned-desktop"),
+            patch.object(launcher, "configure_restricted_dacl") as configure_dacl,
         ):
             self.assertEqual(launcher.run_restricted(command, ROOT), 23)
-        fixture.security.OpenProcessToken.assert_called_once_with("current-process", 11)
+        fixture.security.OpenProcessToken.assert_called_once_with("current-process", 139)
         fixture.security.CreateRestrictedToken.assert_called_once_with(
             fixture.token, 1, [("administrators-sid", 0)], None, None
         )
+        configure_dacl.assert_called_once_with(fixture.restricted)
         fixture.processes.CreateProcessAsUser.assert_called_once_with(
             fixture.restricted,
             command[0],
@@ -231,6 +285,7 @@ class RestrictedToken(unittest.TestCase):
         with (
             patch.dict(sys.modules, fixture.modules),
             patch.object(launcher, "private_desktop", return_value="owned-station\\owned-desktop"),
+            patch.object(launcher, "configure_restricted_dacl"),
             patch.object(launcher, "build") as build,
             self.assertRaisesRegex(OSError, "launch denied"),
         ):

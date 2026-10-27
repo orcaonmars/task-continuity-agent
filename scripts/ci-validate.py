@@ -113,6 +113,29 @@ def private_desktop(token, cleanup):
     return station_name + "\\" + desktop_name
 
 
+def configure_restricted_dacl(token):
+    """Give this token access to its own future objects after Admins is disabled."""
+    import win32con
+    import win32security
+
+    user = win32security.GetTokenInformation(token, win32security.TokenUser)[0]
+    previous = win32security.GetTokenInformation(token, win32security.TokenDefaultDacl)
+    user_grant = previous is None or any(
+        ace[0][0] == win32security.ACCESS_ALLOWED_ACE_TYPE
+        and ace[-1] == user
+        and bool(ace[1] & win32con.GENERIC_ALL)
+        for ace in (previous.GetAce(index) for index in range(previous.GetAceCount()))
+    )
+    print(f"Inherited object defaults include user full access={user_grant}.", flush=True)
+    acl = win32security.ACL()
+    system = win32security.CreateWellKnownSid(win32security.WinLocalSystemSid, None)
+    for sid in (user, system):
+        acl.AddAccessAllowedAce(win32security.ACL_REVISION, win32con.GENERIC_ALL, sid)
+    # This is the newly created restricted token, never the caller's primary token.
+    # Its default DACL affects only new objects, including child startup objects.
+    win32security.SetTokenInformation(token, win32security.TokenDefaultDacl, acl)
+
+
 def run_restricted(command, cwd):
     """Launch using a restricted copy of our own primary token, retaining CI logs."""
     import msvcrt
@@ -132,7 +155,8 @@ def run_restricted(command, cwd):
         token = owned(
             win32security.OpenProcessToken(
                 current,
-                win32con.TOKEN_DUPLICATE | win32con.TOKEN_QUERY | win32con.TOKEN_ASSIGN_PRIMARY,
+                win32con.TOKEN_DUPLICATE | win32con.TOKEN_QUERY
+                | win32con.TOKEN_ASSIGN_PRIMARY | win32con.TOKEN_ADJUST_DEFAULT,
             )
         )
         administrators = win32security.CreateWellKnownSid(
@@ -147,6 +171,7 @@ def run_restricted(command, cwd):
                 None,
             )
         )
+        configure_restricted_dacl(restricted)
         startup = win32process.STARTUPINFO()
         startup.dwFlags = win32con.STARTF_USESTDHANDLES
         startup.lpDesktop = private_desktop(token, cleanup)
