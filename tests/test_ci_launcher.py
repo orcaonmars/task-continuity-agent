@@ -7,7 +7,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from contextlib import ExitStack, nullcontext, redirect_stdout
+import uuid
+from contextlib import ExitStack, redirect_stdout
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import ANY, MagicMock, Mock, patch
@@ -84,6 +85,62 @@ class CIEntryPoint(unittest.TestCase):
 
 
 class RestrictedToken(unittest.TestCase):
+    @unittest.skipUnless(os.name == "nt", "Native Windows nested job objects")
+    def test_tracked_child_breaks_away_from_owned_inner_job_but_keeps_outer_membership(self):
+        import win32job
+
+        name = "continuity-ci-outer-" + uuid.uuid4().hex
+        inner_name = "continuity-ci-inner-" + uuid.uuid4().hex
+        outer = win32job.CreateJobObject(None, name)
+        try:
+            limits = win32job.QueryInformationJobObject(outer, win32job.JobObjectExtendedLimitInformation)
+            limits["BasicLimitInformation"]["LimitFlags"] = win32job.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+            win32job.SetInformationJobObject(outer, win32job.JobObjectExtendedLimitInformation, limits)
+            grandchild = (
+                "import win32api,win32job;"
+                f"outer=win32job.OpenJobObject(4,False,{name!r});"
+                f"inner=win32job.OpenJobObject(4,False,{inner_name!r});"
+                "assert win32job.IsProcessInJob(win32api.GetCurrentProcess(),outer);"
+                "assert not win32job.IsProcessInJob(win32api.GetCurrentProcess(),inner);inner.Close();"
+                "flags=win32job.QueryInformationJobObject(outer,win32job.JobObjectExtendedLimitInformation)"
+                "['BasicLimitInformation']['LimitFlags'];"
+                "assert not(flags & win32job.JOB_OBJECT_LIMIT_BREAKAWAY_OK);"
+                "outer.Close();print('Breakaway child remains in non-breakaway outer job',flush=True)"
+            )
+            worker = (
+                "import subprocess,sys,win32api,win32job;"
+                f"inner=win32job.OpenJobObject(4,False,{inner_name!r});"
+                "assert win32job.IsProcessInJob(win32api.GetCurrentProcess(),inner);"
+                "flags=win32job.QueryInformationJobObject(inner,win32job.JobObjectExtendedLimitInformation)"
+                "['BasicLimitInformation']['LimitFlags'];"
+                "assert flags & win32job.JOB_OBJECT_LIMIT_BREAKAWAY_OK;inner.Close();"
+                f"child=subprocess.run([sys.executable,'-c',{grandchild!r}],capture_output=True,text=True,"
+                "creationflags=subprocess.CREATE_BREAKAWAY_FROM_JOB|subprocess.CREATE_NO_WINDOW);"
+                "print(child.stdout,end='',flush=True);print(child.stderr,end='',file=sys.stderr,flush=True);"
+                "sys.exit(child.returncode)"
+            )
+            helper = (
+                "import importlib.util,sys,win32api,win32job;from unittest.mock import patch;"
+                f"outer=win32job.OpenJobObject(1,False,{name!r});"
+                "win32job.AssignProcessToJobObject(outer,win32api.GetCurrentProcess());outer.Close();"
+                f"spec=importlib.util.spec_from_file_location('ci_nested',{str(ROOT / 'scripts/ci-validate.py')!r});"
+                "module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);"
+                "create_job=win32job.CreateJobObject;"
+                f"patcher=patch.object(win32job,'CreateJobObject',side_effect=lambda attrs,name:create_job(attrs,{inner_name!r}));"
+                "patcher.start();"
+                f"sys.exit(module.run_restricted([sys.executable,'-c',{worker!r}],{str(ROOT)!r}))"
+            )
+            completed = subprocess.run(
+                [sys.executable, "-c", helper], cwd=ROOT, capture_output=True, text=True,
+                timeout=15, creationflags=subprocess.CREATE_NO_WINDOW,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+            self.assertIn("Breakaway child remains in non-breakaway outer job", completed.stdout)
+        finally:
+            # The parent owns the outer job; even a failed helper cannot strand
+            # its worker or an explicitly detached grandchild beyond this test.
+            outer.Close()
+
     @unittest.skipUnless(os.name == "nt", "Native Windows token and PowerShell")
     def test_nested_powershell_build_forwards_both_channels_and_failure_status(self):
         with tempfile.TemporaryDirectory(prefix="continuity-ci-build-") as folder:
@@ -114,29 +171,30 @@ class RestrictedToken(unittest.TestCase):
         import win32security
 
         source = win32security.OpenProcessToken(
-            win32api.GetCurrentProcess(), win32con.TOKEN_DUPLICATE | win32con.TOKEN_QUERY
+            win32api.GetCurrentProcess(), win32con.TOKEN_QUERY
         )
         try:
             original = win32security.GetTokenInformation(source, win32security.TokenDefaultDacl)
             original_aces = [original.GetAce(index) for index in range(original.GetAceCount())]
+            configure = launcher.configure_restricted_dacl
             for repair in (False, True):
-                # Simulate elevated/service object defaults using a private copy;
-                # the test never modifies the current process's primary token.
-                duplicate = win32security.DuplicateTokenEx(
-                    source, win32security.SecurityImpersonation,
-                    win32con.TOKEN_ALL_ACCESS, win32security.TokenPrimary,
-                )
-                acl = win32security.ACL()
-                for kind in (win32security.WinBuiltinAdministratorsSid, win32security.WinLocalSystemSid):
-                    acl.AddAccessAllowedAce(
-                        win32security.ACL_REVISION, win32con.GENERIC_ALL,
-                        win32security.CreateWellKnownSid(kind, None),
-                    )
-                win32security.SetTokenInformation(duplicate, win32security.TokenDefaultDacl, acl)
+                # Seed only the new restricted token. Keeping the caller's real
+                # primary token as the source also exercises the no-privilege
+                # CreateProcessAsUser exemption inside an already reduced worker.
+                def seed_defaults(token, repair=repair):
+                    acl = win32security.ACL()
+                    for kind in (win32security.WinBuiltinAdministratorsSid, win32security.WinLocalSystemSid):
+                        acl.AddAccessAllowedAce(
+                            win32security.ACL_REVISION, win32con.GENERIC_ALL,
+                            win32security.CreateWellKnownSid(kind, None),
+                        )
+                    win32security.SetTokenInformation(token, win32security.TokenDefaultDacl, acl)
+                    if repair:
+                        configure(token)
+
                 output = io.StringIO()
                 with (
-                    patch.object(win32security, "OpenProcessToken", return_value=duplicate),
-                    nullcontext() if repair else patch.object(launcher, "configure_restricted_dacl"),
+                    patch.object(launcher, "configure_restricted_dacl", side_effect=seed_defaults),
                     redirect_stdout(output),
                 ):
                     result = launcher.run_restricted(
@@ -222,8 +280,9 @@ class RestrictedToken(unittest.TestCase):
         self.assertIn("RuntimeError: Restricted child startup diagnostic", captured)
         self.assertIn("Restricted validation worker exited with code 1.", captured)
 
-    def api(self, error=None):
+    def api(self, error=None, assignment_error=None, resume_error=None):
         token, restricted, process, thread = [Mock() for _ in range(4)]
+        job = Mock()
         streams = [Mock(), Mock(), Mock()]
         startup = SimpleNamespace()
         api = Mock()
@@ -247,21 +306,32 @@ class RestrictedToken(unittest.TestCase):
             STARTF_USESTDHANDLES=256,
             DUPLICATE_SAME_ACCESS=2,
             CREATE_NO_WINDOW=0x08000000,
+            CREATE_SUSPENDED=4,
         )
         processes = Mock()
         processes.STARTUPINFO.return_value = startup
         processes.CreateProcessAsUser.return_value = (process, thread, 100, 101)
         if error:
             processes.CreateProcessAsUser.side_effect = error
+        if resume_error:
+            processes.ResumeThread.side_effect = resume_error
         processes.GetExitCodeProcess.return_value = 23
         events = Mock(WAIT_OBJECT_0=0, WAIT_TIMEOUT=258)
-        events.WaitForSingleObject.side_effect = [258, 0]
+        events.WaitForSingleObject.side_effect = [0] if assignment_error or resume_error else [258, 0]
+        jobs = Mock(JobObjectExtendedLimitInformation=9,
+                    JOB_OBJECT_LIMIT_BREAKAWAY_OK=0x800,
+                    JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE=0x2000)
+        jobs.CreateJobObject.return_value = job
+        jobs.QueryInformationJobObject.return_value = {"BasicLimitInformation": {"LimitFlags": 0}}
+        if assignment_error:
+            jobs.AssignProcessToJobObject.side_effect = assignment_error
         modules = {
             "win32api": api,
             "win32con": constants,
             "win32event": events,
             "win32process": processes,
             "win32security": security,
+            "win32job": jobs,
         }
         return SimpleNamespace(**locals())
 
@@ -286,7 +356,7 @@ class RestrictedToken(unittest.TestCase):
             None,
             None,
             True,
-            0x08000000,
+            0x08000004,
             ANY,
             str(ROOT),
             fixture.startup,
@@ -304,7 +374,14 @@ class RestrictedToken(unittest.TestCase):
         self.assertEqual(fixture.startup.lpDesktop, "owned-station\\owned-desktop")
         self.assertEqual(fixture.startup.hStdOutput, fixture.streams[1])
         self.assertEqual(fixture.startup.hStdError, fixture.streams[2])
-        for handle in [fixture.token, fixture.restricted, fixture.process, fixture.thread, *fixture.streams]:
+        fixture.jobs.AssignProcessToJobObject.assert_called_once_with(fixture.job, fixture.process)
+        fixture.processes.ResumeThread.assert_called_once_with(fixture.thread)
+        self.assertEqual(
+            fixture.jobs.SetInformationJobObject.call_args.args[2]["BasicLimitInformation"]["LimitFlags"],
+            0x2800,
+        )
+        for handle in [fixture.token, fixture.restricted, fixture.process, fixture.thread,
+                       fixture.job, *fixture.streams]:
             handle.Close.assert_called_once_with()
 
     def test_spawn_failure_closes_tokens_and_logs_without_an_elevated_retry(self):
@@ -319,8 +396,27 @@ class RestrictedToken(unittest.TestCase):
             launcher.run_restricted(["python.exe"], ROOT)
         fixture.processes.CreateProcessAsUser.assert_called_once()
         build.assert_not_called()
-        for handle in [fixture.token, fixture.restricted, *fixture.streams]:
+        for handle in [fixture.token, fixture.restricted, fixture.job, *fixture.streams]:
             handle.Close.assert_called_once_with()
+
+    def test_job_assignment_or_resume_failure_terminates_suspended_worker_without_retry(self):
+        for failure in ("assignment", "resume"):
+            with self.subTest(failure=failure):
+                fixture = self.api(**{failure + "_error": OSError(failure + " denied")})
+                with (
+                    patch.dict(sys.modules, fixture.modules),
+                    patch.object(launcher, "private_desktop", return_value="owned\\desktop"),
+                    patch.object(launcher, "configure_restricted_dacl"),
+                    self.assertRaisesRegex(OSError, failure + " denied"),
+                ):
+                    launcher.run_restricted(["python.exe"], ROOT)
+                fixture.processes.CreateProcessAsUser.assert_called_once()
+                fixture.processes.TerminateProcess.assert_called_once_with(fixture.process, 1)
+                fixture.events.WaitForSingleObject.assert_called_once_with(fixture.process, 5000)
+                if failure == "assignment":
+                    fixture.processes.ResumeThread.assert_not_called()
+                for handle in (fixture.process, fixture.thread, fixture.job):
+                    handle.Close.assert_called_once_with()
 
 
 class PrivateDesktop(unittest.TestCase):

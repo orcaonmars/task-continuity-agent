@@ -33,6 +33,6 @@ First standalone Windows source release for long tasks using tool-capable local 
 - Bound persistent live Blender diagnostics, tolerate transient diagnostic locks, and reclaim only confirmed-dead browser scratch owned by the same task.
 - Pin CI actions, run hosted Windows builds with reduced privileges, and attach verified source packages to passing workflow runs.
 - Add a shared first-file walkthrough, direct setup links, clearer controls and troubleshooting, and a starter example that preserves drafts and remembers the chosen time limit.
-- Run restricted CI workers on owned private Windows desktop objects, repair inherited object defaults on only the new token, capture output independently of service-runner handles, and report startup/exit diagnostics while retaining the normal-user guard.
+- Build and test as a restricted Windows user in CI, with owned desktop and process wrappers, explicit output capture, and regressions for token permissions and hosted process cleanup. Keep the normal-user guard and host policy intact.
 
 Local validation includes a live model write/read/follow-up, supervisor crash recovery, responsive interface checks, a deterministic Blender/render/resume/video pipeline, and a small model-driven Blender scene resumed through verified completion. This is experimental software; see [release status](RELEASE-STATUS.md) for tested scope and remaining limitations.

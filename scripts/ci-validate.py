@@ -147,6 +147,7 @@ def run_restricted(command, cwd):
     import win32api
     import win32con
     import win32event
+    import win32job
     import win32process
     import win32security
 
@@ -202,6 +203,12 @@ def run_restricted(command, cwd):
             )
             setattr(startup, field, handle)
         env = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUNBUFFERED="1")
+        job = owned(win32job.CreateJobObject(None, ""))
+        limits = win32job.QueryInformationJobObject(job, win32job.JobObjectExtendedLimitInformation)
+        limits["BasicLimitInformation"]["LimitFlags"] |= (
+            win32job.JOB_OBJECT_LIMIT_BREAKAWAY_OK | win32job.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+        )
+        win32job.SetInformationJobObject(job, win32job.JobObjectExtendedLimitInformation, limits)
         print("Starting restricted validation worker.", flush=True)
         process, thread, _, _ = win32process.CreateProcessAsUser(
             restricted,
@@ -210,13 +217,24 @@ def run_restricted(command, cwd):
             None,
             None,
             True,
-            win32con.CREATE_NO_WINDOW,
+            win32con.CREATE_NO_WINDOW | win32con.CREATE_SUSPENDED,
             env,
             str(cwd),
             startup,
         )
         owned(process)
         owned(thread)
+        try:
+            # The owned immediate job permits explicit tracked-job breakaway.
+            # GitHub's outer job remains in force; no inherited job is modified.
+            win32job.AssignProcessToJobObject(job, process)
+            win32process.ResumeThread(thread)
+        except BaseException:
+            # Never leave an unassigned suspended child or retry without limits.
+            win32process.TerminateProcess(process, 1)
+            if win32event.WaitForSingleObject(process, 5000) != win32event.WAIT_OBJECT_0:
+                raise RuntimeError("The suspended CI worker did not terminate during cleanup.") from None
+            raise
         while True:
             status = win32event.WaitForSingleObject(process, 1000)
             if status == win32event.WAIT_OBJECT_0:
