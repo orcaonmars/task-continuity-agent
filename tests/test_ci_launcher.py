@@ -5,6 +5,7 @@ import io
 import os
 import subprocess
 import sys
+import tempfile
 import unittest
 from contextlib import ExitStack, nullcontext, redirect_stdout
 from pathlib import Path
@@ -77,9 +78,35 @@ class CIEntryPoint(unittest.TestCase):
         self.assertEqual(args[0][-1], str(ROOT / "scripts/build.ps1"))
         self.assertEqual(kwargs["cwd"], ROOT)
         self.assertEqual(kwargs["env"]["TASK_CONTINUITY_TEST_PYTHON"], sys.executable)
+        self.assertIs(kwargs["stdout"], sys.stdout)
+        self.assertEqual(kwargs["stderr"], subprocess.STDOUT)
+        self.assertEqual(kwargs["stdin"], subprocess.DEVNULL)
 
 
 class RestrictedToken(unittest.TestCase):
+    @unittest.skipUnless(os.name == "nt", "Native Windows token and PowerShell")
+    def test_nested_powershell_build_forwards_both_channels_and_failure_status(self):
+        with tempfile.TemporaryDirectory(prefix="continuity-ci-build-") as folder:
+            temporary = Path(folder)
+            (temporary / "scripts").mkdir()
+            (temporary / "scripts/build.ps1").write_text(
+                "Write-Output 'Nested build stdout'\n"
+                "[Console]::Error.WriteLine('Nested build stderr')\nexit 17\n", encoding="utf-8",
+            )
+            command = [
+                sys.executable, "-c",
+                "import importlib.util,sys;from pathlib import Path;"
+                f"spec=importlib.util.spec_from_file_location('ci_native',{str(ROOT / 'scripts/ci-validate.py')!r});"
+                "module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);"
+                f"module.ROOT=Path({str(temporary)!r});sys.exit(module.build())",
+            ]
+            output = io.StringIO()
+            with redirect_stdout(output):
+                self.assertEqual(launcher.run_restricted(command, ROOT), 17)
+            self.assertIn("Nested build stdout", output.getvalue())
+            self.assertIn("Nested build stderr", output.getvalue())
+            self.assertIn("PowerShell build exited with code 17.", output.getvalue())
+
     @unittest.skipUnless(os.name == "nt", "Native Windows token and process APIs")
     def test_admin_only_object_defaults_fail_until_new_restricted_token_is_repaired(self):
         import win32api

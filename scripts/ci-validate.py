@@ -39,6 +39,11 @@ def build():
         [shell, "-NoProfile", "-NonInteractive", "-File", str(ROOT / "scripts/build.ps1")],
         cwd=ROOT,
         env=env,
+        # CREATE_NO_WINDOW has no console from which to recover default handles.
+        # Explicit streams keep PowerShell and every build child on our capture.
+        stdin=subprocess.DEVNULL,
+        stdout=sys.stdout,
+        stderr=subprocess.STDOUT,
         creationflags=subprocess.CREATE_NO_WINDOW,
     )
     print(f"PowerShell build exited with code {result}.", flush=True)
