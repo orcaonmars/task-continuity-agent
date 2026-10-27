@@ -1,0 +1,24 @@
+name: Use case or improvement
+description: Describe a real task the agent should handle better
+title: "[Use case] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: task
+    attributes:
+      label: What task are you trying to complete?
+      description: Describe the desired result and who would use it. Remove private details.
+    validations:
+      required: true
+  - type: textarea
+    id: friction
+    attributes:
+      label: Where does the current workflow fall short?
+      description: Include what you tried, what happened, and any workaround.
+    validations:
+      required: true
+  - type: textarea
+    id: success
+    attributes:
+      label: How would we verify the improvement?
+      description: Suggest a small reproducible task and an observable success check.

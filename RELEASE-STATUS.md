@@ -1,0 +1,46 @@
+# Release status — v1.0.0
+
+Experimental Windows source release, refined and verified locally on 2026-10-27. Repository: [orcaonmars/task-continuity-agent](https://github.com/orcaonmars/task-continuity-agent). Hosted results are recorded in [Actions](https://github.com/orcaonmars/task-continuity-agent/actions/workflows/validate.yml).
+
+## Current verification
+
+- 161 Python regression tests and 15 dependency-free Node.js interface checks pass on Python 3.14.2. Compilation of app, tests, and release scripts, dependency consistency, bug-focused Ruff checks, PowerShell parsing, and source/privacy checks pass.
+- A real local tool-capable model created the exact requested text file, read it back, and completed through independent verification. A deliberately broken optional MCP executable was configured throughout; the core file task completed without initializing it.
+- During another live model task, the actor was killed while a tracked 50-second command was running. The supervisor was then killed. Its watchdog restarted it, the same job survived both interruptions, the original objective and saved checkpoint were unchanged, and the resumed task verified both deliverables and completed.
+- That live check exposed a Windows MCP ownership defect missed by the older direct-launch tests. The fix retains core MCP process cleanup and permits explicitly detached runners to survive it. Three real MCP regressions cover actor-owner termination, subsequent explicit cancellation, and denied breakaway without an unsafe fallback.
+- A loopback OpenAI-compatible proxy deliberately returned HTTP 503 before forwarding to the real local model. The task waited without launching an actor, continued when the endpoint returned, and verified its output under the same task identity. This simulated provider outage did not stop the user's LM Studio server.
+- Real HTTP tests verify total inference limits during partial headers, unchunked keepalives, and a stream becoming silent near its deadline. At most one unfinished network worker is permitted per actor. Completed SSE connections can remain open without preventing the next prediction. A malformed MCP peer verifies that optional transport failure leaves core tools usable. Tests also cover invalid optional tool names, schema compaction preserving real title/default arguments, truncated/multiple choices, and exact archived history.
+- Text-only models never receive restored or fresh image blocks and cannot claim image-based quality review. Oversized optional schemas fall back to core tools with an explicit limitation. Large tool responses are archived exactly with a readable pointer; an archive failure is reported rather than hidden.
+- Real child-process tests drain 8 MiB of newline-free data from each output pipe with bounded rotated logs. Transient diagnostic append locks drop recorded byte counts rather than killing valid jobs. An independent live-Blender logging helper also rotates native output and preserves a running scene when logging fails. Startup/timeout cleanup, job finalization, cancellation races, delayed launch after expiry, working-directory identity, task-relative inputs, render-version receipts, and preservation of existing Blender projects have regression coverage.
+- Progress tests verify bounded traversal of unrelated files and empty directories, unchanged snapshots after JSON restore, and a fresh stall window after legitimate long jobs. A 50-hour command request retains its timeout within the 72-hour task/job ceiling; this is configuration and recovery coverage, not a 50-hour endurance run.
+- The monochrome interface was checked in Chrome at desktop and mobile widths. Public Node.js regressions cover separate per-task/new-task drafts, unavailable storage, task/action races, authentication refresh, budget validation, safe text rendering, bounded conversation nodes, and missing task selection. The guide also has no mobile overflow or browser errors. The README screenshot is from the actual running application in a fresh browser context.
+- The CI entry point runs the unchanged build under a restricted copy of the runner's token when necessary. The runtime still refuses administrator execution. Eight CI launcher tests include a native filtered-token child that confirms it is not an administrator and preserves output and exit status; the elevated hosted transition is checked by the published workflow.
+- The final source archive is checked against its complete public inventory and each source file's SHA-256, plus ZIP CRC validation. An unchanged rebuild reproduces the same archive. A clean extraction is checked separately. Local configuration, task history, models, profiles, environments, caches, and smoke artifacts are excluded.
+
+Live verification used separate configuration and task data. Its watchdog, supervisor, and temporary model instance were stopped afterward; existing runtime configuration and task history were preserved.
+
+## Earlier recorded checks
+
+The prior release audit recorded a successful normal-user installation, live model follow-up editing, separate Python 3.12 dependency validation, actual browser download checks, a Blender 5.0.1 background save/render/resume/video pipeline, and a small model-driven Blender scene resumed through verified completion. Those application-specific Blender and installer checks were not repeated in this refinement pass. The current regression suite retains their relevant automated coverage.
+
+## Design and reliability
+
+The supervisor owns task identity, deadlines, saved state, and worker recovery. The model is disposable. Job launch intent and process creation identities are durable before work is reported as running; uncertain actions are inspected instead of blindly replayed. Terminal job results follow owned-child cleanup and pipe draining.
+
+Model selection is saved per task. An empty preference does not switch models after a restart; an explicit replacement overrides the saved model for discovery and recovery. Disabling automatic LM Studio recovery also disables automatic server startup. Optional MCP servers connect lazily and fail independently.
+
+Atomic state writes have bounded pending fallbacks for Windows locks. File-tool edits retain bounded backups. Active tool groups and archived conversation turns reduce context overhead. Completion checks actual files, structure, hashes, live-job state, and current visual-review evidence where applicable.
+
+## Limits that remain
+
+- No overnight or 50-hour soak test was performed. Short recovery tests do not establish indefinite unattended reliability or compatibility with every model. A compatible streaming tool-call API and capable model are required; visual judgment needs image support.
+- Acceptance parsing is heuristic. Structural checks and model visual review cannot prove arbitrary program correctness or artistic quality.
+- The live Blender add-on and arbitrary third-party integrations remain unverified. Detached logging was exercised with a real noisy child, not a new live Blender add-on session. Browser scratch reclamation requires matching task/installation receipts and confirmed-dead recorded processes; unmarked, foreign, live, or uncertain folders are preserved.
+- Power loss, Windows shutdown, GPU pressure, changing sites, and model mistakes can interrupt work. Desktop input needs an unlocked Windows session. The watchdog runs while launched; there is no automatic Windows startup service.
+- Browser transfer monitoring can briefly overshoot its limit. Retained outputs, downloads, and context archives have no total disk quota. Locked diagnostic files can drop bytes while state remains separate. A timed-out network worker may remain blocked until its socket unwinds; the actor refuses another request and its bounded recovery restarts the process.
+- The application uses the normal user's permissions and is not a sandbox. Shell commands and third-party tools retain that authority. Keep independent backups; login, CAPTCHA, purchases, publishing, external messages, and privilege prompts can require human action.
+- Windows CI is configured for Python 3.11, 3.12, and 3.14, with Node.js 22. Consult the workflow for each commit's hosted outcome. Installation on a different PC and a full endurance trial remain separate checks. This refinement was executed locally on Python 3.14.2.
+
+## Release artifacts
+
+Build with `scripts/build.ps1`. The source ZIP is `dist/task-continuity-agent-1.0.0.zip`; `dist/SHA256SUMS.txt` is its authoritative checksum and `dist/release-manifest.json` contains per-file hashes. Upload the reviewed archive contents rather than the installed folder. See [publishing instructions](docs/publishing.md).

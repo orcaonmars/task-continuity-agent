@@ -1,0 +1,31 @@
+name: Bug report
+description: Report a reproducible Task Continuity Agent failure
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Include the task type, expected result, and actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+  - type: input
+    id: provider
+    attributes:
+      label: Local model provider and model
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Remove private data, credentials, and personal file paths before posting.

@@ -1,0 +1,680 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Task Continuity Agent</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #181818;
+      background: #fff;
+      font-size: 14px;
+      font-synthesis: none;
+      --muted: #666;
+      --line: #e5e5e5;
+      --surface: #f7f7f7;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; display: flex; height: 100vh; height: 100dvh; }
+    button, input, textarea { font: inherit; color: inherit; }
+    button, input { border: 1px solid var(--line); border-radius: 7px; background: #fff; }
+    button { cursor: pointer; padding: 9px 13px; transition: background .15s, border-color .15s; }
+    button:hover { background: #efefef; border-color: #c7c7c7; }
+    button:disabled { opacity: .42; cursor: default; }
+    button.primary { background: #181818; border-color: #181818; color: #fff; font-weight: 600; }
+    button.primary:hover { background: #363636; }
+    :focus-visible { outline: 2px solid #181818; outline-offset: 3px; }
+    a { color: inherit; text-underline-offset: 3px; }
+    a:hover { color: var(--muted); }
+    .hint { color: var(--muted); font-size: 12px; line-height: 1.6; }
+    .eyebrow { font-size: 10px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+    aside { width: 264px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--surface); border-right: 1px solid var(--line); padding: 28px 18px 18px; }
+    .brand { display: flex; align-items: center; gap: 11px; padding: 0 8px; }
+    .brand-mark { flex-shrink: 0; }
+    .brand-name { font-size: 15px; font-weight: 650; letter-spacing: -.025em; }
+    .brand-subtitle { margin-top: 3px; font-size: 11px; color: var(--muted); }
+    #new-task { width: 100%; text-align: left; margin: 30px 0; display: flex; justify-content: space-between; align-items: center; }
+    .task-heading { margin: 0 10px 10px; }
+    #tasks { flex: 1; overflow: auto; min-height: 60px; }
+    .task { display: block; width: 100%; text-align: left; margin-bottom: 5px; padding: 12px 10px; background: transparent; border-color: transparent; }
+    .task.selected { background: #fff; border-color: #dedede; }
+    .task-title { display: block; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+    .task-state { display: block; margin-top: 5px; font-size: 11px; color: var(--muted); text-transform: capitalize; }
+    .empty-tasks { margin: 8px 10px; }
+    .sidebar-footer { border-top: 1px solid var(--line); margin-top: 18px; padding: 16px 8px 0; }
+    .connection { display: flex; align-items: flex-start; gap: 7px; font-size: 11px; color: var(--muted); line-height: 1.6; }
+    .connection::before { content: ''; width: 6px; height: 6px; background: #181818; border-radius: 50%; flex-shrink: 0; margin-top: 6px; }
+    .connection[data-state="offline"]::before { background: transparent; border: 1px solid #666; }
+    .sidebar-footer p { margin: 10px 0 0; font-size: 11px; }
+    main { flex: 1; display: flex; flex-direction: column; min-width: 0; max-width: 1200px; padding: 28px 42px 24px; margin: 0 auto; }
+    header { display: flex; align-items: center; gap: 18px; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
+    .heading { flex: 1; min-width: 0; }
+    .heading-line { display: flex; align-items: center; gap: 10px; }
+    h1 { font-size: 15px; font-weight: 600; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -.02em; }
+    #task-status { flex-shrink: 0; font-size: 10px; text-transform: capitalize; padding: 3px 7px; border: 1px solid #d9d9d9; border-radius: 4px; }
+    #task-status:empty { display: none; }
+    .heading .hint { display: block; margin-top: 5px; font-size: 11px; }
+    .controls { display: flex; align-items: center; gap: 5px; }
+    .controls button { font-size: 12px; padding: 7px 10px; background: transparent; border-color: transparent; }
+    .controls button:hover { background: var(--surface); border-color: var(--line); }
+    .controls .danger { border-color: var(--line); margin-left: 5px; }
+    .guide { margin-left: 4px; font-size: 12px; color: var(--muted); }
+    #notice { font-size: 13px; line-height: 1.6; margin-top: 14px; padding: 11px 13px; background: var(--surface); border-left: 2px solid #181818; overflow-wrap: anywhere; }
+    #notice:empty { display: none; }
+    #timing { margin-top: 14px; font-size: 11px; }
+    #timing:empty { display: none; }
+    #outputs:empty { display: none; }
+    #outputs button { font-size: 12px; }
+    .saved { margin: 12px 0 0; }
+    .saved summary { color: var(--muted); font-size: 11px; }
+    summary { cursor: pointer; }
+    #progress { background: var(--surface); padding: 14px; margin-top: 10px; border: 1px solid var(--line); border-radius: 7px; white-space: pre-wrap; overflow-wrap: anywhere; font: 11px/1.7 Consolas, monospace; max-height: 200px; overflow: auto; }
+    #events { flex: 1; min-height: 0; overflow: auto; padding: 24px 0 12px; scrollbar-width: thin; }
+    #events:has(.welcome) { display: flex; }
+    .welcome { width: 100%; flex-shrink: 0; max-width: 720px; margin: auto; padding: 10px 0; }
+    .welcome h2 { font-size: clamp(25px, 3vw, 36px); font-weight: 500; letter-spacing: -.045em; line-height: 1.15; margin: 17px 0; }
+    .welcome-copy { max-width: 510px; color: var(--muted); line-height: 1.8; font-size: 14px; margin: 0; }
+    .examples { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 26px 0 14px; }
+    .examples button { text-align: left; padding: 18px 15px; line-height: 1.6; }
+    .example-number { display: block; color: #777; font: 10px Consolas, monospace; margin-bottom: 16px; }
+    .examples strong { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; }
+    .examples .hint { display: block; font-size: 11px; }
+    .welcome-note { font-size: 11px; color: var(--muted); line-height: 1.6; }
+    .message { padding: 0 0 23px; margin-bottom: 23px; border-bottom: 1px solid #efefef; white-space: pre-wrap; line-height: 1.8; font-size: 14px; overflow-wrap: anywhere; }
+    .message::before { content: attr(data-label); display: block; font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 9px; color: var(--muted); }
+    .user { padding: 16px 19px; margin-left: 8%; background: var(--surface); border: 1px solid #ececec; border-radius: 8px; }
+    .system { padding-bottom: 10px; margin-bottom: 15px; border: 0; font-size: 12px; color: var(--muted); }
+    .system::before, .tool::before { display: none; }
+    .tool { font-size: 11px; color: var(--muted); padding: 0 0 10px 12px; margin-bottom: 14px; border-bottom: 0; border-left: 1px solid #d4d4d4; }
+    .tool details > div { font: 11px/1.7 Consolas, monospace; margin-top: 8px; }
+    footer { padding-top: 14px; }
+    .composer { border: 1px solid #cfcfcf; border-radius: 10px; background: #fff; }
+    .composer:focus-within { border-color: #777; }
+    textarea { display: block; width: 100%; min-height: 94px; max-height: 240px; resize: vertical; background: transparent; border: 0; border-radius: 10px; padding: 16px 18px 8px; line-height: 1.6; outline: none; }
+    textarea:focus-visible { outline: none; }
+    textarea::placeholder { color: #777; }
+    .composer-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px 10px 16px; }
+    label { display: flex; align-items: center; gap: 7px; }
+    input { width: 66px; padding: 6px 5px 6px 8px; font-size: 12px; }
+    #send { font-size: 12px; padding: 9px 15px; }
+    .composer-note { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 18px; padding: 9px 3px 0; font-size: 10px; color: var(--muted); }
+    .bar { display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+    @media (min-width: 1600px) { main { padding-left: 64px; padding-right: 64px; } }
+    @media (max-width: 1000px) { aside { width: 226px; padding: 24px 12px 16px; } main { padding: 24px; } .examples { gap: 8px; } .examples button { padding: 14px 11px; } header { gap: 10px; flex-wrap: wrap; } .heading { flex-basis: 100%; } .controls { margin-left: -10px; } .guide { margin-left: auto; } }
+    @media (max-width: 680px) {
+      body { flex-direction: column; }
+      aside { width: 100%; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px 10px; border-right: 0; border-bottom: 1px solid var(--line); }
+      .brand { padding: 0; flex: 1; }
+      .brand-mark { width: 26px; height: 26px; }
+      .brand-name { font-size: 14px; }
+      .brand-subtitle, .task-heading, .sidebar-footer { display: none; }
+      #new-task { width: auto; margin: 0; font-size: 11px; gap: 16px; }
+      #tasks { display: flex; gap: 5px; flex-basis: 100%; overflow: auto; min-height: 0; max-height: 67px; }
+      .task { width: 165px; flex-shrink: 0; padding: 7px 9px; margin: 0; }
+      .task-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
+      .task-state { font-size: 10px; margin-top: 2px; }
+      .empty-tasks { font-size: 10px; margin: 0; }
+      main { width: 100%; min-height: 0; padding: 17px 18px 14px; }
+      header { padding-bottom: 12px; gap: 10px; }
+      .heading .hint { display: none; }
+      h1 { font-size: 14px; }
+      .controls button { font-size: 11px; padding: 6px 9px; }
+      #events { padding-top: 20px; }
+      .welcome { padding: 10px 0 16px; }
+      .welcome h2 { margin-top: 12px; }
+      .welcome-copy { font-size: 13px; }
+      .examples { grid-template-columns: 1fr; margin-top: 22px; gap: 7px; }
+      .examples button { display: grid; grid-template-columns: 24px 1fr; padding: 10px 12px; }
+      .example-number { grid-row: span 2; margin: 2px 0 0; }
+      .examples strong { margin: 0; font-size: 12px; }
+      .welcome-note { font-size: 10px; }
+      .user { margin-left: 0; }
+      .message { font-size: 13px; }
+      .system { font-size: 11px; }
+      .tool { font-size: 11px; }
+      textarea { min-height: 80px; padding: 12px 14px 6px; font-size: 13px; }
+      .composer-bar { padding-left: 12px; gap: 8px; }
+      label.hint { font-size: 10px; gap: 5px; }
+      input { width: 57px; }
+      #send { padding: 8px 11px; font-size: 11px; }
+      .shortcut { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) { button { transition: none; } }
+  </style>
+</head>
+<body>
+  <aside aria-label="Task navigation">
+    <div class="brand">
+      <svg class="brand-mark" width="31" height="31" viewBox="0 0 32 32" fill="none" aria-hidden="true"><rect x="1" y="1" width="30" height="30" rx="8" stroke="currentColor"/><path d="M21 11H14a5 5 0 0 0 0 10h4a5 5 0 0 0 0-10M11 16h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <div><div class="brand-name">Task Continuity</div><div class="brand-subtitle">Local agent workspace</div></div>
+    </div>
+    <button type="button" id="new-task" class="primary">New task <span aria-hidden="true">+</span></button>
+    <div class="eyebrow task-heading">Your tasks</div>
+    <nav id="tasks" aria-label="Saved tasks"></nav>
+    <div class="sidebar-footer">
+      <div class="connection" id="status">Connecting…</div>
+      <p class="hint">Closing this tab keeps work running.</p>
+      <p class="hint">Screen control needs Windows signed in and unlocked.</p>
+    </div>
+  </aside>
+
+  <main>
+    <header>
+      <div class="heading">
+        <div class="heading-line"><h1 id="task-title">New task</h1><span id="task-status"></span></div>
+        <span class="hint">Progress and outputs stay on your computer.</span>
+      </div>
+      <div class="controls" role="group" aria-label="Task controls">
+        <button type="button" data-action="pause" title="Pause reasoning. Background jobs may continue." disabled>Pause</button>
+        <button type="button" data-action="resume" title="Continue with saved progress and the time budget below." disabled>Resume</button>
+        <button type="button" data-action="stop" class="danger" title="Stop reasoning and cancel background jobs. Saved progress is kept." disabled>Stop</button>
+      </div>
+      <a class="guide" href="/guide" target="_blank" rel="noopener">Guide ↗</a>
+    </header>
+
+    <div id="notice" role="status" aria-live="polite"></div>
+    <div id="timing" class="hint"></div>
+    <div id="outputs" class="bar"></div>
+
+    <details class="saved">
+      <summary>Saved progress &amp; files</summary>
+      <div id="progress">A new task starts with its own durable state.</div>
+    </details>
+
+    <template id="welcome">
+      <div class="welcome">
+        <div class="eyebrow">Room for the long work</div>
+        <h2>What are we working on?</h2>
+        <p class="welcome-copy">Give your local agent a clear goal, a place to work, and a way to check the result. Progress stays on disk so work can pick up after an interruption.</p>
+        <div class="examples" aria-label="Example tasks">
+          <button type="button" data-example="code"><span class="example-number" aria-hidden="true">01 /</span><strong>Build or improve</strong><span class="hint">Work on a website or codebase.<br>Make changes and verify them.</span></button>
+          <button type="button" data-example="research"><span class="example-number" aria-hidden="true">02 /</span><strong>Research &amp; organize</strong><span class="hint">Compare sources, work with files,<br>and save a useful report.</span></button>
+          <button type="button" data-example="scene"><span class="example-number" aria-hidden="true">03 /</span><strong>Create &amp; refine</strong><span class="hint">Build a scene in Blender.<br>Render, inspect, and improve.</span></button>
+        </div>
+        <p class="welcome-note">Files, code, web, desktop, and media. Optional tools are enabled in your configuration.</p>
+      </div>
+    </template>
+    <section id="events" aria-label="Task conversation" tabindex="0"></section>
+
+    <footer>
+      <div class="composer">
+        <textarea aria-label="Task instructions" aria-describedby="composer-help" id="prompt" placeholder="Describe the goal, working folder, and expected result…"></textarea>
+        <div class="composer-bar">
+          <label class="hint" for="hours">Time budget <input id="hours" type="number" value="10" min="0.1" max="72" step="0.1"> hours</label>
+          <button type="button" id="send" class="primary">Send task</button>
+        </div>
+      </div>
+      <div class="composer-note" id="composer-help">
+        <span>A maximum, not a target. Set up to 72 hours for longer work.</span>
+        <span class="shortcut">Ctrl + Enter to send</span>
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    let TOKEN = '__TOKEN__';
+    const STORAGE_KEY = 'task-continuity-selected';
+    const DRAFT_KEY = 'task-continuity-draft';
+    const MAX_EVENTS = 500;
+    const drafts = new Map();
+    let selected = saved(STORAGE_KEY);
+    let lastEvents = '';
+    let lastTasks = '';
+    let lastOutputs = '';
+    let refreshing = false;
+    let selectionVersion = 0;
+
+    const $ = (id) => document.getElementById(id);
+
+    // Private browsing or a full storage quota must not prevent using the agent.
+    function saved(key) {
+      try { return localStorage.getItem(key); } catch { return null; }
+    }
+
+    function save(key, value) {
+      try {
+        if (value) localStorage.setItem(key, value);
+        else localStorage.removeItem(key);
+      } catch { /* The current draft remains usable in this tab. */ }
+    }
+
+    function draftKey(taskId) {
+      return DRAFT_KEY + ':' + (taskId || 'new');
+    }
+
+    function draftFor(taskId) {
+      const key = draftKey(taskId);
+      if (!drafts.has(key)) drafts.set(key, saved(key) || '');
+      return drafts.get(key);
+    }
+
+    function storeDraft(text, taskId = selected) {
+      drafts.set(draftKey(taskId), text);
+      save(draftKey(taskId), text);
+    }
+
+    function restoreDraft() {
+      $('prompt').value = draftFor(selected);
+    }
+
+    function taskHeading(objective, status = '') {
+      $('task-title').textContent = objective || 'New task';
+      $('task-title').title = objective || '';
+      $('task-status').textContent = String(status).replaceAll('_', ' ');
+      for (const button of document.querySelectorAll('[data-action]')) {
+        button.disabled = !selected;
+      }
+    }
+
+    function welcome() {
+      $('events').replaceChildren($('welcome').content.cloneNode(true));
+      $('events').scrollTop = 0;
+      const examples = {
+        scene: 'Create and refine a Blender still scene of [subject] in [style]. Save scene.blend and preview.png in the task folder. Build a rough scene first, render a preview, inspect composition, materials and lighting, then improve visible defects. Checkpoint each milestone. Verify the final files and record remaining limitations.',
+        research: 'Research [topic] using the web. Save report.md with source links, dates, findings and uncertainties in the task folder. Compare primary sources and verify factual claims. Checkpoint progress and finish with the saved report.',
+        code: 'Build or improve [website or project] at [folder]. The desired result is [goal]. Prioritize reliability, then effectiveness, then simplicity. Make small reversible changes, preserve existing behavior, and verify the result with appropriate tests or a browser review. Save the finished project and a concise audit.md with changes, verification and remaining limitations. Checkpoint milestones.'
+      };
+      for (const button of $('events').querySelectorAll('[data-example]')) {
+        button.onclick = () => {
+          $('prompt').value = examples[button.dataset.example];
+          storeDraft($('prompt').value);
+          $('prompt').focus();
+        };
+      }
+    }
+
+    async function api(path, data, retried = false) {
+      const options = data
+        ? {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Agent-Token': TOKEN,
+            },
+            body: JSON.stringify(data),
+          }
+        : { cache: 'no-store' };
+
+      options.signal = AbortSignal.timeout(15000);
+      const response = await fetch(path, options);
+
+      if (response.status === 403 && data && !retried) {
+        const page = await fetch('/', { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+        if (page.ok) {
+          const match = (await page.text()).match(/let TOKEN = '([^']+)'/);
+          if (match && match[1] !== TOKEN) {
+            TOKEN = match[1];
+            return api(path, data, true);
+          }
+        }
+      }
+
+      let result;
+      try {
+        result = await response.json();
+      } catch {
+        throw new Error('Agent returned an invalid response.');
+      }
+      if (!result || typeof result !== 'object' || Array.isArray(result)) {
+        throw new Error('Agent returned an invalid response.');
+      }
+      if (!response.ok) {
+        throw new Error(result.error || 'Request failed.');
+      }
+      return result;
+    }
+
+    function duration(seconds) {
+      const minutes = Math.floor(Math.max(0, Number(seconds) || 0) / 60);
+      return Math.floor(minutes / 60) + 'h ' + (minutes % 60) + 'm';
+    }
+
+    function message(event) {
+      const div = document.createElement('div');
+      div.className = 'message ' + (event.role || 'system');
+      div.dataset.label = event.role === 'user' ? 'You' : 'Agent';
+
+      if (event.role !== 'tool') {
+        div.textContent = event.text || '';
+        return div;
+      }
+
+      const labels = {
+        read_text: 'Reading a file',
+        write_text: 'Saving a file',
+        list_files: 'Checking files',
+        shell: 'Running a tracked command',
+        jobs: 'Checking background work',
+        blender_project: 'Working in Blender',
+        view_image: 'Inspecting an image',
+        quality_review: 'Reviewing visual quality',
+        render_sequence: 'Rendering frames',
+        encode_video: 'Encoding video',
+        video_review_frames: 'Checking the finished video',
+        task_brief: 'Reading the task brief',
+        task_checkpoint: 'Saving a checkpoint',
+        finish_task: 'Verifying completion',
+      };
+
+      const parts = String(event.text || '').split('\n');
+      const first = parts.shift() || 'tool';
+      const key = first.split(' · ')[0];
+      const details = document.createElement('details');
+      const summary = document.createElement('summary');
+      summary.textContent =
+        (labels[key] || first) + (first.includes('failed') ? ' · needs correction' : '');
+      details.append(summary);
+
+      if (parts.length) {
+        const content = document.createElement('div');
+        content.textContent = parts.join('\n');
+        details.append(content);
+      }
+      div.append(details);
+      return div;
+    }
+
+    function clearSelection() {
+      storeDraft($('prompt').value);
+      selectionVersion++;
+      selected = null;
+      save(STORAGE_KEY, null);
+      lastEvents = '';
+      lastOutputs = '';
+      restoreDraft();
+      welcome();
+      taskHeading();
+      $('outputs').replaceChildren();
+      $('timing').textContent = '';
+      $('notice').textContent = '';
+      $('progress').textContent = 'New task · no old checkpoint selected.';
+      $('send').textContent = 'Send task';
+      $('prompt').placeholder = 'Describe the goal, working folder, and expected result…';
+    }
+
+    function newTask() {
+      clearSelection();
+      $('prompt').focus();
+      refresh();
+    }
+
+    async function openFile(path, taskId) {
+      const version = selectionVersion;
+      try {
+        await api('/api/open', { id: taskId, path });
+      } catch (error) {
+        if (version === selectionVersion) $('notice').textContent = error.message;
+      }
+    }
+
+    function renderTasks(tasks) {
+      const visible = tasks.filter((item) => !item.internal_test);
+      const encoded = JSON.stringify([selected, visible.map(
+        ({ id, objective, status }) => [id, objective, status]
+      )]);
+      if (encoded === lastTasks) return;
+      lastTasks = encoded;
+      $('tasks').replaceChildren();
+      if (!visible.length) {
+        const empty = document.createElement('p');
+        empty.className = 'hint empty-tasks';
+        empty.textContent = 'Your saved work will appear here.';
+        $('tasks').append(empty);
+      }
+      for (const task of visible) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'task' + (task.id === selected ? ' selected' : '');
+        button.setAttribute('aria-pressed', String(task.id === selected));
+        button.title = String(task.objective || 'Untitled task');
+        const title = document.createElement('span');
+        title.className = 'task-title';
+        title.textContent = String(task.objective || 'Untitled task').slice(0, 90);
+        const state = document.createElement('span');
+        state.className = 'task-state';
+        state.textContent = String(task.status || 'unknown').replaceAll('_', ' ');
+        button.append(title, state);
+        button.onclick = () => {
+          if (selected === task.id) return;
+          storeDraft($('prompt').value);
+          selectionVersion++;
+          selected = task.id;
+          save(STORAGE_KEY, selected);
+          lastEvents = '';
+          lastOutputs = '';
+          restoreDraft();
+          taskHeading(task.objective, task.status);
+          $('events').replaceChildren(message({ role: 'system', text: 'Loading saved progress…' }));
+          $('outputs').replaceChildren();
+          $('timing').textContent = '';
+          $('notice').textContent = '';
+          $('progress').textContent = 'Loading saved progress…';
+          $('send').textContent = 'Send follow-up';
+          $('prompt').placeholder = 'Add instructions or refine the goal…';
+          refresh();
+        };
+        $('tasks').append(button);
+      }
+    }
+
+    async function renderSelectedTask() {
+      if (!selected) return;
+      const taskId = selected;
+      const version = selectionVersion;
+      let task;
+      try {
+        task = await api('/api/task/' + encodeURIComponent(taskId));
+      } catch (error) {
+        if (version !== selectionVersion) return;
+        if (error.message.toLowerCase().includes('not found')) {
+          clearSelection();
+          $('notice').textContent = 'The previously selected task no longer exists.';
+          return;
+        }
+        throw error;
+      }
+      if (version !== selectionVersion) return;
+
+      $('send').textContent = 'Send follow-up';
+      $('prompt').placeholder = 'Add instructions or refine the goal…';
+      const history = task.events || [];
+      const visibleEvents = history.slice(-MAX_EVENTS);
+      const truncated = history.length > visibleEvents.length;
+      const encoded = JSON.stringify([truncated, visibleEvents]);
+      if (encoded !== lastEvents) {
+        const events = $('events');
+        const nearBottom =
+          events.scrollHeight - events.scrollTop - events.clientHeight < 160;
+        events.replaceChildren(...visibleEvents.map(message));
+        if (truncated) {
+          events.prepend(message({
+            role: 'system',
+            text: 'Showing the latest ' + MAX_EVENTS + ' entries from the saved task history.',
+          }));
+        }
+        if (nearBottom || !lastEvents) {
+          events.scrollTop = events.scrollHeight;
+        }
+        lastEvents = encoded;
+      }
+
+      taskHeading(task.meta?.objective || 'Saved task', task.meta?.status || 'unknown');
+      $('notice').textContent =
+        task.meta?.error || task.result?.required_user_action || '';
+
+      const terminal = ['completed', 'blocked', 'stopped', 'time_limit'].includes(
+        task.meta?.status
+      );
+      const now = Date.now() / 1000;
+      const end =
+        task.result?.finished_at ||
+        task.meta?.finished_at ||
+        (terminal
+          ? task.events?.at(-1)?.time || task.meta?.last_activity || task.meta?.created
+          : now);
+
+      const activity = terminal
+        ? 'Ended ' + new Date(end * 1000).toLocaleString()
+        : task.meta?.activity || 'Saved task';
+      const remaining = terminal
+        ? ''
+        : ' · Budget remaining ' + duration(task.meta?.deadline - now);
+      $('timing').textContent =
+        'Elapsed ' + duration(end - task.meta?.created) + ' · ' + activity + remaining;
+
+      const files = task.result?.files || [];
+      const encodedOutputs = JSON.stringify([taskId, files.map((file) => file.path)]);
+      if (encodedOutputs !== lastOutputs) {
+        $('outputs').replaceChildren();
+        for (const file of files) {
+          const button = document.createElement('button');
+          button.type = 'button';
+          const name = String(file.path || '').split(/[\\/]/).pop();
+          button.textContent = 'Open ' + name;
+          button.title = String(file.path || '');
+          button.onclick = () => openFile(file.path, taskId);
+          $('outputs').append(button);
+        }
+        lastOutputs = encodedOutputs;
+      }
+
+      const progress = JSON.stringify(
+        {
+          task_folder: task.task_folder,
+          progress: task.progress,
+          result: task.result,
+        },
+        null,
+        2
+      );
+      if ($('progress').textContent !== progress) $('progress').textContent = progress;
+    }
+
+    async function refresh() {
+      if (refreshing) return;
+      refreshing = true;
+      const version = selectionVersion;
+      try {
+        const state = await api('/api/status');
+        const info = state.model || {};
+        $('status').dataset.state = info.error ? 'offline' : 'online';
+        $('status').textContent = info.error
+          ? 'Local model unavailable · supervisor is still running'
+          : (info.model || 'No loaded model') +
+            ' · ' +
+            (info.vision ? 'vision ready' : 'text only') +
+            ' · ' +
+            (info.provider || 'local');
+
+        renderTasks(state.tasks || []);
+        await renderSelectedTask();
+      } catch (error) {
+        $('status').dataset.state = 'offline';
+        $('status').textContent = 'Connection interrupted';
+        if (version === selectionVersion) {
+          $('notice').textContent =
+            'Agent UI unavailable. The watchdog should restart it automatically. ' +
+            error.message;
+        }
+      } finally {
+        refreshing = false;
+        if (version !== selectionVersion) queueMicrotask(refresh);
+      }
+    }
+
+    function readHours() {
+      const hours = Number($('hours').value);
+      if (!Number.isFinite(hours) || hours < 0.1 || hours > 72) {
+        throw new Error('Choose a time budget from 0.1 to 72 hours.');
+      }
+      return hours;
+    }
+
+    async function send() {
+      if ($('send').disabled) return;
+      const text = $('prompt').value.trim();
+      if (!text) return;
+      const taskId = selected;
+      const version = selectionVersion;
+      storeDraft($('prompt').value);
+      $('send').disabled = true;
+
+      try {
+        const hours = readHours();
+        let started;
+        if (taskId) {
+          await api('/api/followup', { id: taskId, text, hours });
+        } else {
+          started = await api('/api/start', { task: text, hours });
+        }
+        if (version === selectionVersion) {
+          // Keep edits made while sending. A new task's edits become its follow-up draft.
+          const remainder = $('prompt').value.trim() === text ? '' : $('prompt').value;
+          storeDraft(remainder, taskId);
+          if (started) {
+            storeDraft('', null);
+            selected = started.id;
+            selectionVersion++;
+            save(STORAGE_KEY, selected);
+            storeDraft(remainder);
+            $('send').textContent = 'Send follow-up';
+          }
+          restoreDraft();
+          $('notice').textContent = '';
+          lastEvents = '';
+        } else if (selected !== taskId && draftFor(taskId).trim() === text) {
+          // Clear only the sent draft, never the composer for another selection.
+          storeDraft('', taskId);
+        }
+        await refresh();
+      } catch (error) {
+        if (version === selectionVersion) $('notice').textContent = error.message;
+      } finally {
+        $('send').disabled = false;
+      }
+    }
+
+    async function action(name) {
+      if (!selected) {
+        $('notice').textContent = 'Select a task first.';
+        return;
+      }
+      const version = selectionVersion;
+      try {
+        await api('/api/' + name, {
+          id: selected,
+          ...(name === 'resume' ? { hours: readHours() } : {}),
+        });
+        await refresh();
+      } catch (error) {
+        if (version === selectionVersion) $('notice').textContent = error.message;
+      }
+    }
+
+    $('new-task').onclick = newTask;
+    $('send').onclick = send;
+    const legacyDraft = saved(DRAFT_KEY);
+    if (legacyDraft) {
+      if (!draftFor(selected)) storeDraft(legacyDraft);
+      save(DRAFT_KEY, null);
+    }
+    restoreDraft();
+    $('prompt').addEventListener('input', () => storeDraft($('prompt').value));
+    for (const button of document.querySelectorAll('[data-action]')) {
+      button.onclick = () => action(button.dataset.action);
+    }
+    $('prompt').addEventListener('keydown', (event) => {
+      if (event.ctrlKey && event.key === 'Enter') {
+        event.preventDefault();
+        send();
+      }
+    });
+
+    if (!selected) welcome();
+    refresh();
+    setInterval(refresh, 3000);
+  </script>
+</body>
+</html>
