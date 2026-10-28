@@ -125,22 +125,25 @@ test('budgets accept 50 hours and reject empty, non-finite and out-of-range valu
   }
 });
 
-test('the first-task example fills a saved, six-minute draft without starting work', async () => {
+test('the project-review preset fills a saved draft without starting work or changing the time limit', async () => {
   let posts = 0;
   const ui = environment({fetch: async (url, options) => {
     if (options.method === 'POST') posts++;
     return idleResponse(url);
   }});
   await tick();
-  ui.elements.get('events').exampleButtons.find(button => button.dataset.example === 'starter').onclick();
-  assert.match(ui.elements.get('prompt').value, /Create welcome\.txt/);
-  assert.match(ui.elements.get('prompt').value, /Use only file tools/);
-  assert.equal(ui.elements.get('hours').value, '0.1');
+  ui.elements.get('hours').value = '50';
+  ui.elements.get('hours').listeners.input();
+  ui.elements.get('events').exampleButtons.find(button => button.dataset.example === 'review').onclick();
+  assert.match(ui.elements.get('prompt').value, /Review \[full project folder path\]/);
+  assert.match(ui.elements.get('prompt').value, /read-only source inspection/);
+  assert.match(ui.elements.get('prompt').value, /Save findings\.md/);
+  assert.equal(ui.elements.get('hours').value, '50');
   assert.equal(ui.storage.get('task-continuity-draft:new'), ui.elements.get('prompt').value);
   const restored = environment({saved: Object.fromEntries(ui.storage)});
   assert.equal(restored.elements.get('prompt').value, ui.elements.get('prompt').value);
-  assert.equal(restored.elements.get('hours').value, '0.1');
-  assert.match(ui.elements.get('notice').textContent, /six-minute limit/);
+  assert.equal(restored.elements.get('hours').value, '50');
+  assert.match(ui.elements.get('notice').textContent, /Replace \[bracketed details\]/);
   assert.equal(ui.run('selected'), null);
   assert.equal(posts, 0);
 });
@@ -150,11 +153,11 @@ test('choosing an example preserves an existing draft and its time limit', async
   await tick();
   ui.edit('A project I am still describing');
   ui.elements.get('hours').value = '50';
-  ui.elements.get('events').exampleButtons.find(button => button.dataset.example === 'starter').onclick();
+  ui.elements.get('events').exampleButtons.find(button => button.dataset.example === 'review').onclick();
   assert.equal(ui.elements.get('prompt').value, 'A project I am still describing');
   assert.equal(ui.storage.get('task-continuity-draft:new'), 'A project I am still describing');
   assert.equal(ui.elements.get('hours').value, '50');
-  assert.match(ui.elements.get('notice').textContent, /draft is still/);
+  assert.match(ui.elements.get('notice').textContent, /current draft/);
 });
 
 test('drafts follow their task, including the separate new-task composer', async () => {

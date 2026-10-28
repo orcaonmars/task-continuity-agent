@@ -1,89 +1,94 @@
-# Your first task
+# Installation and usage
 
-Start with a small text file. It checks that the app and your model can work together before you give them a bigger job.
+## Installation
 
-## 1. Get ready
+Requirements:
 
-You need Windows 10 or 11, [Python 3.11 or later](https://www.python.org/downloads/windows/), and a local model that supports **tool use**. That means the model can ask the app to read or write a file, rather than only describe what to do. A model and [LM Studio](https://lmstudio.ai/) are separate downloads; neither is included here.
+- Windows 10 or 11.
+- [Python 3.11 or later](https://www.python.org/downloads/windows/), available as `python` in PowerShell.
+- A local model server with streaming responses and tool-call support. [LM Studio](https://lmstudio.ai/) is the default backend; models are installed separately.
 
-Extract the project ZIP into a folder you can write to, such as Documents. Open that folder in File Explorer, type `powershell` in the address bar, and press Enter. Use an ordinary PowerShell window, not “Run as administrator.”
-
-Run:
+Extract or clone the project into a writable folder. Open PowerShell in that folder. In File Explorer, you can type `powershell` in the folder's address bar and press Enter. Run the installer as your normal Windows user:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-The installer downloads the Python dependencies, checks the installation, creates your local settings at `data/config.json`, and adds a **Task Continuity Agent** Desktop shortcut. Wait for “installed and validated” before continuing. If it stops with an error, use the troubleshooting steps below.
+The installer creates `.venv`, installs dependencies, validates the installation, writes local settings to `data/config.json`, and adds a **Task Continuity Agent** Desktop shortcut. It refuses administrator execution.
 
-## 2. Connect your model
+## Configuration
 
-In LM Studio, load a model that supports tool use. Open **Developer** and switch on **Start server**. The default address expected by this app is `http://127.0.0.1:1234/v1`. [LM Studio's server guide](https://lmstudio.ai/docs/developer/core/server) shows where to find these controls.
+### Model server
 
-For your first run, load just the model you want to use. With the default settings, a new task selects the first loaded model and remembers that choice. Other local servers need [additional configuration](docs/configuration.md) and may differ in compatibility.
+In LM Studio, load a model trained for tool use. Open **Developer** and enable **Start server**. The app expects `http://127.0.0.1:1234/v1` by default. See [LM Studio's server documentation](https://lmstudio.ai/docs/developer/core/server).
 
-Text-only models can do this first task. Visual tasks, such as judging a rendered image, need a model and server that accept image inputs. Blender and extra integrations can wait until the basics work.
+Tool-call support is required for the model to perform actions through the app. Image inspection additionally requires a model and backend that accept images. Text-only models can use file, page-structure, accessibility, and background-job tools, but cannot perform visual review.
 
-## 3. Open the app
+Edit `data/config.json` for a different endpoint or model selection. With `preferred_model` empty, a new task selects the first loaded model and retains that choice across restarts. Set `preferred_model` to select a specific model or explicitly replace a task's saved selection. Compatibility with other OpenAI-compatible servers depends on their streaming and tool-call behavior.
 
-In the same PowerShell window, run:
+See [configuration reference](docs/configuration.md) for provider settings, automatic model recovery, timeouts, and optional tools. Blender is disabled by default; [Blender setup](docs/blender.md) covers background rendering and optional live control.
+
+### Launch
+
+Run from the project folder, or use the Desktop shortcut:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\start-agent.ps1
 ```
 
-You can use the Desktop shortcut on later runs. The launcher opens the app in your browser, normally at `http://127.0.0.1:8765/`. This address belongs to your computer. Closing the browser tab leaves the agent running.
+The launcher opens `http://127.0.0.1:8765/` by default and starts the watchdog. If that port is occupied, set an unused `ui_port` in `data/config.json` before launching. Closing the browser tab leaves the agent running.
 
-## 4. Make one file
+## Usage
 
-Select **New task**, set **Time limit** to **0.1 hours** (a maximum of six minutes), and paste this:
+Select **New task**, enter the instructions, set **Time limit**, and select **Send task**. Include the source or destination folder, required deliverables, verification criteria, and any restrictions. Task budgets range from **0.1 to 72 hours**. The budget is a maximum; verified work can finish early.
 
-> Create welcome.txt in this task's folder with exactly one line: Task Continuity is ready. Read it back and check that it matches. Use only file tools. Do not browse the web, run shell commands, or change files outside this task folder. Finish by reporting the saved file's full path.
+For example, replace the path in this read-only project review:
 
-Select **Send task**. A successful run ends with **Completed** and a reported `welcome.txt` file. Select **Open welcome.txt**, then check its contents:
+> Review [full project folder path] for reliability defects. Use read-only source inspection; do not edit project files, run project code, install dependencies, or publish changes. Save findings.md in this task's folder with prioritized findings, file references, supporting evidence, and suggested fixes. Distinguish confirmed defects from possible risks and note any checks that require execution. Report the saved path when finished.
 
-```text
-Task Continuity is ready.
-```
+This produces a review without authorizing changes to the source project. Other [task examples](docs/example-tasks.md) cover implementation, research, data processing, and Blender.
 
-The file normally lives at `data/Tasks/<task-id>/welcome.txt` inside this installation. Each task gets its own folder; its full path appears in the saved progress details. If you do not see an output button, use the path reported in the conversation or saved progress.
+### Task controls
 
-You now have a useful starting point. Try an [example task](docs/example-tasks.md) with a clear result and a short budget before leaving anything to run overnight.
-
-## While a task is running
-
-| Control | What happens |
+| Control | Behavior |
 | --- | --- |
-| **Pause** | Stops the agent's reasoning. Jobs it already started may keep running, and the deadline keeps counting down. |
-| **Resume** | Continues from saved work with a fresh budget, using the hours you have selected. |
+| **Pause** | Suspends reasoning. Existing jobs may continue, and the deadline keeps running. |
+| **Resume** | Continues saved work with a fresh budget using the selected hours. |
 | **Stop** | Cancels the task and its owned jobs. Saved files remain. |
-| **Send follow-up** | Adds an instruction to the selected task. An active task keeps its deadline; an inactive task gets a fresh budget. |
+| **Send follow-up** | Adds instructions to the selected task. Active tasks retain their deadline; inactive tasks receive a fresh budget. |
 
-A budget is a limit, not a target. The agent should finish early when the result is checked. Only one task controls the computer at a time.
+Only one task controls the computer at a time.
 
-## If something gets stuck
+### Outputs and recovery
 
-| What you see | What to try |
-| --- | --- |
-| `python` is missing or opens the Microsoft Store | Install Python 3.11 or later with the `python` command available. Reopen PowerShell, check `python --version`, then rerun the installer. |
-| “Run normally, not as Administrator” | Close that PowerShell window and open a normal one from the project folder. |
-| Local model unavailable | Check that the local server is running at the expected address and a tool-capable model is loaded. If the task already selected a model, reload that same model. |
-| Model replies with instructions but creates no file | Check that the model supports tool calls through your server. Try the first task in a new task; a text reply alone is not a successful file test. |
-| Port 8765 is occupied | Before launching, change `ui_port` in `data/config.json` to an unused port, such as `8766`. Rerun the launcher and use the address it prints. |
-| The app does not open | Run `start-agent.ps1` from PowerShell so you can read the error. Startup details are in `data/Logs/supervisor-error.log`. |
+Tasks normally save under `data/Tasks/<task-id>/`. Select a task in the sidebar, then open **Saved progress & files** for its folder path, checkpoints, and reported outputs. Completed files can appear as **Open** buttons. An explicitly selected external project can contain the edited files instead.
 
-For a setup report, run this from the project folder:
+The original brief, checkpoints, job records, and outputs remain across model-session restarts. If the app stops, relaunch it normally. Eligible interrupted tasks recover while their deadline is valid; completed, paused, blocked, stopped, and expired tasks need **Resume** or a follow-up. Inspect existing files and jobs before retrying an interrupted action, since it may already have completed. Continue polling a running job; changed commands require a new job name.
+
+### Operating limits
+
+The agent runs with your Windows account's permissions and is not a security sandbox. Keep backups. Shell commands and third-party tools do not inherit file-tool backup guarantees. Capability switches do not restrict the account's underlying authority. Login, purchases, publishing, external messages, and privilege changes require your authorization or action where applicable.
+
+Desktop interaction needs an unlocked Windows session. Keep the computer powered: recovery cannot preserve running processes through shutdown or power loss. File-tool backups and logs are bounded, but outputs, downloads, and context archives are retained without a total disk quota. Check free space and remove old tasks when no longer needed.
+
+The interface binds to this computer by default. Local model hosting does not keep web requests or configured integrations offline. Runtime data is excluded from the source release; review [publishing guidance](docs/publishing.md) before sharing an installed copy. See [release status](RELEASE-STATUS.md) for tested recovery paths and limits; a full overnight or 50-hour endurance run has not been performed.
+
+## Troubleshooting
+
+Run the setup diagnostics from the project folder:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\doctor.ps1
 ```
 
-The doctor checks the runtime, local server, settings, and optional tools. Missing optional tools do not prevent the text-file task. Before asking for help, remove private paths and task contents from any logs you share.
+| Problem | Resolution |
+| --- | --- |
+| `python` is missing or opens the Microsoft Store | Install Python 3.11 or later with the `python` command available. Reopen PowerShell and check `python --version` before rerunning the installer. |
+| Administrator execution refused | Use a normal PowerShell window. |
+| Local model unavailable | Check the server address and loaded model. For an existing task, reload its selected model or set `preferred_model` explicitly. |
+| Model describes actions without executing them | Confirm that the model and server support tool calls. A text response alone does not establish tool compatibility. |
+| Port 8765 occupied | Set `ui_port` to an unused port, such as `8766`, then relaunch using the address printed by the launcher. |
+| Interface fails to open | Run `start-agent.ps1` in PowerShell to read the error; inspect `data/Logs/supervisor-error.log` for startup details. |
+| Task reaches its time limit | Inspect the saved outputs, select an additional budget, and use **Resume** or send a follow-up. |
 
-## Before bigger work
-
-Keep backups and use files you can recover. The agent runs with your Windows account's permissions; it is not a security sandbox. Desktop interaction needs Windows signed in and unlocked. Keep the computer powered, and check free space: saved tasks, downloads, and outputs remain on disk.
-
-Recovery has been tested with interrupted tasks, but this release has not had a full overnight or 50-hour endurance test. Read [current limits and test evidence](RELEASE-STATUS.md) before a long run.
-
-Your task data and local environment are excluded from the source release. If you publish a copy, follow [the publishing guide](docs/publishing.md); do not manually upload the whole installed folder. Git ignore rules do not protect a manual web upload.
+Missing optional tools do not prevent core file work. Include the diagnostic result and relevant error when reporting a problem, with private paths and task contents removed.
