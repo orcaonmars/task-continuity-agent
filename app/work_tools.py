@@ -85,7 +85,11 @@ def _backup_existing(path):
     shutil.copy2(path, backup)
     # The filename may contain glob metacharacters such as square brackets.
     # The hash already identifies the complete original path.
-    prior = sorted(folder.glob(f"{key}-*"), key=lambda p: p.stat().st_mtime_ns)
+    # copy2 preserves the source mtime, which can repeat or move backwards.
+    # Use the backup creation timestamp embedded in our own filename instead.
+    prior = sorted(
+        folder.glob(f"{key}-*"), key=lambda p: int(p.name.split("-", 2)[1])
+    )
     for old in prior[:-keep]:
         try:
             old.unlink()

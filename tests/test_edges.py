@@ -188,9 +188,13 @@ if ((Get-Content -LiteralPath $log -Raw) -notmatch 'still alive') { throw 'Appen
             path = Path(td) / "report[1].txt"
             with patch.object(
                 work_tools, "settings", return_value={"backups_per_file": 2}
-            ):
+            ), patch.object(work_tools.time, "time_ns", side_effect=range(8, 13)):
                 for value in range(5):
                     path.write_text(str(value), encoding="utf-8")
+                    # Copies inherit tied or older source mtimes. Retention must
+                    # follow backup creation order, including numeric 9 -> 10.
+                    source_mtime = (5, 5, 4, 3, 2)[value] * 1_000_000_000
+                    os.utime(path, ns=(source_mtime, source_mtime))
                     work_tools._backup_existing(path)
             backups = list((Path(td) / "Backups").iterdir())
             self.assertEqual(len(backups), 2)

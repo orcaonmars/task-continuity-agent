@@ -1,5 +1,7 @@
 # Changelog
 
+- Keep the newest pre-edit backups by their creation timestamps rather than inherited source modification times, including when edits share a timestamp.
+
 ## 1.0.0 — refined 2026-10-27
 
 First standalone Windows source release for long tasks using tool-capable local models. Supports LM Studio and local OpenAI-compatible streaming backends, core file/job tools, web and desktop capability groups, media verification, and optional background or live Blender control.
