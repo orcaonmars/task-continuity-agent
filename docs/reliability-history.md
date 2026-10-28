@@ -57,7 +57,7 @@ Relative model/tool paths resolve against the current task folder, never against
 
 The regression suite covers parsing and acceptance, real Windows locked-file fallback, bounded pending state and logs, external deliverable progress, configuration failures, malformed tool streams, active capabilities, uncertain actions, independent jobs through real MCP owner crashes, cancellation, deadlines, process-tree ownership, model selection and recovery identity, clipboard restoration, and exact release packaging. See the current release status for the latest executed count and environment.
 
-Live local checks exercised model write/read/completion and follow-up, watchdog crash recovery with retained results, UI authentication and narrow-screen layout, and an isolated Blender 5.0.1 background render/resume/video pipeline. [Release status](../RELEASE-STATUS.md) records the scope and limits; a small model-driven scene also resumed through verified completion, while overnight endurance and extended artistic quality remain unverified.
+Live local checks exercised model write/read/completion and follow-up, watchdog crash recovery with retained results, UI authentication and narrow-screen layout, and an isolated Blender 5.0.1 background render/resume/video pipeline. [Release status](../RELEASE-STATUS.md) records the scope, limits, and the maintainer's subsequently reported overnight endurance run. A small model-driven scene also resumed through verified completion; extended artistic quality remains unverified.
 
 ## Additional edge cases
 

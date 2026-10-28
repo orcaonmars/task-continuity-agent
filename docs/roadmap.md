@@ -5,7 +5,7 @@ The goal is dependable long-task execution on an ordinary Windows PC. More integ
 ## Next validation work
 
 1. **Independent installation.** Record setup time and failures on another Windows machine, including one with no optional Blender or media tools.
-2. **Endurance.** Run real overnight tasks before making stronger unattended claims. Keep failures, interventions, and resource growth in the report. Test a 50-hour run separately from accepting a 50-hour budget.
+2. **Endurance.** Build on the maintainer's completed overnight endurance run with repeat trials and detailed reports of failures, interventions, and resource growth. Test a 50-hour run separately from accepting a 50-hour budget.
 3. **Backend coverage.** Publish exact model/backend versions, context sizes, vision support, and results. A successful provider fixture does not establish compatibility with every local server.
 4. **Recovery evidence.** Repeat actor termination, supervisor termination, provider outages, uncertain writes, and explicit cancellation. Verify output hashes and process identities rather than relying on an exit message.
 5. **User friction.** Watch volunteers complete their own small tasks, with permission. Fix repeated setup or control misunderstandings before broadening the feature list.

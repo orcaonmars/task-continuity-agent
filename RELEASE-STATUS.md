@@ -4,7 +4,7 @@ Experimental Windows source release, refined and verified locally on 2026-10-27.
 
 ## Maintainer experience
 
-In my testing, it usually works, but it sometimes gets stuck and needs manual intervention. This describes my experience using it; the specific checks and limitations are documented below.
+In my testing, it usually works, but it sometimes gets stuck and needs manual intervention. An overnight endurance run has also been completed in my testing. This describes my experience using it; the specific checks and limitations are documented below.
 
 ## Current verification
 
@@ -38,13 +38,13 @@ Atomic state writes have bounded pending fallbacks for Windows locks. File-tool 
 
 ## Limits that remain
 
-- No overnight or 50-hour soak test was performed. Short recovery tests do not establish indefinite unattended reliability or compatibility with every model. A compatible streaming tool-call API and capable model are required; visual judgment needs image support.
+- A 50-hour soak test remains unverified. The maintainer reports a completed overnight endurance run; that run and the short recovery checks do not establish indefinite unattended reliability or compatibility with every model. A compatible streaming tool-call API and capable model are required; visual judgment needs image support.
 - Acceptance parsing is heuristic. Structural checks and model visual review cannot prove arbitrary program correctness or artistic quality.
 - The live Blender add-on and arbitrary third-party integrations remain unverified. Detached logging was exercised with a real noisy child, not a new live Blender add-on session. Browser scratch reclamation requires matching task/installation receipts and confirmed-dead recorded processes; unmarked, foreign, live, or uncertain folders are preserved.
 - Power loss, Windows shutdown, GPU pressure, changing sites, and model mistakes can interrupt work. Desktop input needs an unlocked Windows session. The watchdog runs while launched; there is no automatic Windows startup service.
 - Browser transfer monitoring can briefly overshoot its limit. Retained outputs, downloads, and context archives have no total disk quota. Locked diagnostic files can drop bytes while state remains separate. A timed-out network worker may remain blocked until its socket unwinds; the actor refuses another request and its bounded recovery restarts the process.
 - The application uses the normal user's permissions and is not a sandbox. Shell commands and third-party tools retain that authority. Keep independent backups; login, CAPTCHA, purchases, publishing, external messages, and privilege prompts can require human action.
-- Windows CI is configured for Python 3.11, 3.12, and 3.14, with Node.js 22. Consult the workflow for each commit's hosted outcome. Installation on a different PC and a full endurance trial remain separate checks. This refinement was executed locally on Python 3.14.2.
+- Windows CI is configured for Python 3.11, 3.12, and 3.14, with Node.js 22. Consult the workflow for each commit's hosted outcome. Installation on a different PC and extended endurance trials remain separate checks. This refinement was executed locally on Python 3.14.2.
 
 ## Release artifacts
 

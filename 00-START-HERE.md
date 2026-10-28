@@ -71,7 +71,7 @@ The agent runs with your Windows account's permissions and is not a security san
 
 Desktop interaction needs an unlocked Windows session. Keep the computer powered: recovery cannot preserve running processes through shutdown or power loss. File-tool backups and logs are bounded, but outputs, downloads, and context archives are retained without a total disk quota. Check free space and remove old tasks when no longer needed.
 
-The interface binds to this computer by default. Local model hosting does not keep web requests or configured integrations offline. Runtime data is excluded from the source release; review [publishing guidance](docs/publishing.md) before sharing an installed copy. See [release status](RELEASE-STATUS.md) for tested recovery paths and limits; a full overnight or 50-hour endurance run has not been performed.
+The interface binds to this computer by default. Local model hosting does not keep web requests or configured integrations offline. Runtime data is excluded from the source release; review [publishing guidance](docs/publishing.md) before sharing an installed copy. See [release status](RELEASE-STATUS.md) for tested recovery paths and limits. An overnight endurance run has been completed in maintainer testing; a 50-hour run remains unverified.
 
 ## Troubleshooting
 
