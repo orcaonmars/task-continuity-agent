@@ -4,7 +4,7 @@
 
 A Windows application for running extended tasks with local, tool-capable models. It preserves task state across worker restarts, manages independent background jobs, and checks outputs before accepting completion.
 
-Use it for project maintenance, file processing, research, and optional Blender workflows. This is an experimental source release; see [validation and limitations](#validation-and-limitations).
+Use it for project maintenance, file processing, research, and optional Blender workflows. In my testing, it usually works, but it sometimes gets stuck and needs manual intervention. This is an experimental source release; see [validation and limitations](#validation-and-limitations).
 
 [Installation](#installation) · [Usage](#usage) · [Documentation](#documentation) · [Contributing](CONTRIBUTING.md)
 

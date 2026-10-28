@@ -2,6 +2,10 @@
 
 Experimental Windows source release, refined and verified locally on 2026-10-27. Repository: [orcaonmars/task-continuity-agent](https://github.com/orcaonmars/task-continuity-agent). Hosted results are recorded in [Actions](https://github.com/orcaonmars/task-continuity-agent/actions/workflows/validate.yml).
 
+## Maintainer experience
+
+In my testing, it usually works, but it sometimes gets stuck and needs manual intervention. This describes my experience using it; the specific checks and limitations are documented below.
+
 ## Current verification
 
 - 169 Python regression tests and 17 dependency-free Node.js interface checks pass on Python 3.14.2. Compilation of app, tests, and release scripts, dependency consistency, bug-focused Ruff checks, PowerShell parsing, and source/privacy checks pass.
