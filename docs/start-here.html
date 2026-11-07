@@ -53,25 +53,27 @@
       <p>Requirements:</p>
       <ul>
         <li>Windows 10 or 11.</li>
-        <li><a href="https://www.python.org/downloads/windows/" target="_blank" rel="noopener">Python 3.11 or later</a>, available as <code>python</code> in PowerShell.</li>
+        <li>Python 3.11 or later. The launcher can install Python 3.12 for your account if needed.</li>
         <li>A local model server with streaming responses and tool-call support. <a href="https://lmstudio.ai/" target="_blank" rel="noopener">LM Studio</a> is the default backend; models are installed separately.</li>
       </ul>
-      <p>Extract or clone the project into a writable folder. Open PowerShell in that folder. In File Explorer, type <code>powershell</code> in the folder's address bar and press Enter. Run the installer as your normal Windows user:</p>
+      <p>Extract the downloaded ZIP into a writable folder and double-click <strong>Start Task Continuity.cmd</strong>. It finds or installs Python, installs dependencies, checks the installation, creates local settings, and adds a Desktop shortcut. The first setup needs internet. It can offer to install LM Studio too; choose and download your model separately in LM Studio.</p>
+      <p>Run it normally, without <strong>Run as administrator</strong>. Automatic prerequisite installation uses Windows App Installer (WinGet) for your account. If it isn't available, setup gives a manual download link.</p>
+      <p>For manual installation, open PowerShell in the extracted project folder and run:</p>
       <pre><code>powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1</code></pre>
-      <p>The installer creates <code>.venv</code>, installs dependencies, validates the installation, writes local settings to <code>data/config.json</code>, and adds a Desktop shortcut. It refuses administrator execution.</p>
+      <p>Existing configuration and task history are kept. Later launches reuse a healthy installation. Setup logs are in <code>data/Logs/setup-*.log</code>.</p>
     </section>
 
     <section id="configuration" aria-labelledby="configuration-heading">
       <h2 id="configuration-heading">Configuration</h2>
       <p>In LM Studio, load a model trained for tool use. Open <strong>Developer</strong> and enable <strong>Start server</strong>. The default endpoint is <code>http://127.0.0.1:1234/v1</code>. See <a href="https://lmstudio.ai/docs/developer/core/server" target="_blank" rel="noopener">LM Studio's server documentation</a>.</p>
       <p>Tool-call support allows the model to perform actions through the app. Image inspection additionally requires a model and backend that accept images. Text-only models can use files, page structure, accessibility, and background jobs, but cannot perform visual review.</p>
-      <p>Edit <code>data/config.json</code> to change the endpoint or model selection. With <code>preferred_model</code> empty, a new task selects the first loaded model and retains that selection across restarts. Set it explicitly to choose a specific model or replace a saved selection. Other OpenAI-compatible servers must support compatible streaming responses and tool calls.</p>
+      <p>Open <strong>Connection setup</strong> in the app to change the server type, address, and optional model name. Select <strong>Save and check connection</strong>. Stop or finish an active task first. With the model name blank, a new task selects the first loaded model and retains it across restarts. An explicit name selects a specific model or replaces a saved selection. Other compatible servers need compatible streaming responses and tool calls.</p>
       <p>The source folder's <code>docs/configuration.md</code> covers providers, automatic model recovery, timeouts, and optional tools. Blender is disabled by default; <code>docs/blender.md</code> covers rendering and optional live control.</p>
     </section>
 
     <section id="usage" aria-labelledby="usage-heading">
       <h2 id="usage-heading">Usage</h2>
-      <p>Launch from the project folder, or use the Desktop shortcut:</p>
+      <p>Double-click <strong>Start Task Continuity.cmd</strong> or use the Desktop shortcut. The command-line launcher is also available:</p>
       <pre><code>powershell -NoProfile -ExecutionPolicy Bypass -File .\start-agent.ps1</code></pre>
       <p>The launcher starts the watchdog and opens <code>http://127.0.0.1:8765/</code> by default. Closing the browser tab leaves the agent running.</p>
       <p>Select <strong>New task</strong>, enter instructions, set <strong>Time limit</strong>, and select <strong>Send task</strong>. Specify the work folder, deliverables, verification criteria, and restrictions. Budgets range from <strong>0.1 to 72 hours</strong>; verified work can finish before the limit.</p>
@@ -106,9 +108,9 @@
       <p>Run setup diagnostics from the project folder:</p>
       <pre><code>powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\doctor.ps1</code></pre>
       <dl>
-        <dt>Python missing</dt><dd>Install Python 3.11 or later with the <code>python</code> command available. Reopen PowerShell, check <code>python --version</code>, and rerun the installer.</dd>
+        <dt>Python missing</dt><dd>Run <strong>Start Task Continuity.cmd</strong>. If automatic installation isn't available, use the official Python download link shown in its error and rerun it.</dd>
         <dt>Administrator error</dt><dd>Use a normal PowerShell window.</dd>
-        <dt>Model unavailable</dt><dd>Check the server address and loaded model. For an existing task, reload its selected model or set <code>preferred_model</code> explicitly.</dd>
+        <dt>Model unavailable</dt><dd>Open <strong>Connection setup</strong>. Load a model, start its server, and select <strong>Save and check connection</strong>. Reload an existing task's selected model or enter an explicit replacement.</dd>
         <dt>No tool actions</dt><dd>Confirm that the model and server support tool calls. A text response alone does not establish tool compatibility.</dd>
         <dt>Port occupied</dt><dd>Set <code>ui_port</code> in <code>data/config.json</code> to an unused port, such as <code>8766</code>. Relaunch and use the address printed by the launcher.</dd>
         <dt>Interface unavailable</dt><dd>Run <code>start-agent.ps1</code> in PowerShell to read the error. Inspect <code>data/Logs/supervisor-error.log</code> for startup details.</dd>

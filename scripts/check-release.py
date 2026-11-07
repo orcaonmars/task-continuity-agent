@@ -43,6 +43,7 @@ def check():
         if path.suffix.lower() not in {
             ".py",
             ".ps1",
+        ".cmd",
             ".md",
             ".html",
             ".json",

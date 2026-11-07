@@ -1,4 +1,4 @@
-# Release status — v1.0.1
+# Release status — v1.0.2
 
 Experimental Windows source release, refined locally on 2026-11-07. Repository: [orcaonmars/task-continuity-agent](https://github.com/orcaonmars/task-continuity-agent). Hosted results are recorded in [Actions](https://github.com/orcaonmars/task-continuity-agent/actions/workflows/validate.yml). The [November audit](docs/audit-2026-11.md) separates current evidence from earlier trials and maintainer-reported experience.
 
@@ -8,7 +8,9 @@ In my testing, it usually works, but it sometimes gets stuck and needs manual in
 
 ## Current verification
 
-- The current regression suite contains 181 Python tests and 20 dependency-free Node.js interface checks. Validation includes compilation, dependency consistency, bug-focused Ruff checks, PowerShell parsing, and source/privacy checks; consult Actions for the result on each published revision.
+- The current regression suite contains 190 Python tests and 23 dependency-free Node.js interface checks. Validation includes compilation, dependency consistency, bug-focused Ruff checks, PowerShell parsing, and source/privacy checks; consult Actions for the result on each published revision.
+- First-run setup adds Python discovery and per-user WinGet installation, repeat-launch checks, an optional LM Studio installer, and an authenticated in-app connection form. Tests cover simulated missing prerequisites and failed installers, preserved configuration, and rejected connection changes during active tasks. Installing prerequisites on a different physical PC remains separate validation.
+- A fresh source directory with spaces was installed into a new virtual environment on this PC. Setup passed its validation, then a repeat launch skipped downloads and preserved modified settings and a task fixture. Browser checks saved connection settings through the real authenticated form and checked desktop and two phone layouts without changing unrelated settings or the task fixture.
 - The November audit reproduced input/output inference defects, missing named outputs, completed-task relabelling, malformed instruction handling, and corrupt task-list metadata, then added targeted regressions. Numerical data tasks now require recorded successful execution covering current outputs. This is stronger evidence than a manual-verification claim, not a proof that arbitrary calculations are correct.
 - Pinned dependencies were checked with pip-audit 2.10.1. Pillow, certifi, and OpenTelemetry API were updated following advisory findings; a repeat audit reported no known vulnerabilities in the pinned requirements. Advisory databases and package status can change; CI repeats the check.
 - A real local tool-capable model created the exact requested text file, read it back, and completed through independent verification. A deliberately broken optional MCP executable was configured throughout; the core file task completed without initializing it.
@@ -50,4 +52,4 @@ Atomic state writes have bounded pending fallbacks for Windows locks. File-tool 
 
 ## Release artifacts
 
-Build with `scripts/build.ps1`. The source ZIP is `dist/task-continuity-agent-1.0.1.zip`; `dist/SHA256SUMS.txt` is its authoritative checksum and `dist/release-manifest.json` contains per-file hashes. Upload the reviewed archive contents rather than the installed folder. See [publishing instructions](docs/publishing.md).
+Build with `scripts/build.ps1`. The source ZIP is `dist/task-continuity-agent-1.0.2.zip`; `dist/SHA256SUMS.txt` is its authoritative checksum and `dist/release-manifest.json` contains per-file hashes. Upload the reviewed archive contents rather than the installed folder. See [publishing instructions](docs/publishing.md).

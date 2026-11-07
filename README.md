@@ -2,99 +2,96 @@
 
 [![Validate](https://github.com/orcaonmars/task-continuity-agent/actions/workflows/validate.yml/badge.svg)](https://github.com/orcaonmars/task-continuity-agent/actions/workflows/validate.yml)
 
-A Windows application for running extended tasks with local, tool-capable models. It preserves task state across worker restarts, manages independent background jobs, and checks outputs before accepting completion.
+I made this because I wanted something for longer local AI tasks, including overnight work, without having to keep checking on everything. Figured other people might want something similar.
 
-Use it for project maintenance, file processing, research, and optional Blender workflows. In my testing, it usually works, but it sometimes gets stuck and needs manual intervention. This is an experimental source release; see [validation and limitations](#validation-and-limitations).
+Task Continuity Agent is a Windows app that saves the task and its progress, keeps track of background jobs, and can recover after worker interruptions. You give it a task through a browser interface and check the saved work there.
 
-[Installation](#installation) · [Usage](#usage) · [Documentation](#documentation) · [Contributing](CONTRIBUTING.md)
+I've completed an overnight endurance run. In my testing, it usually works, but sometimes gets stuck and needs intervention. It's still experimental, and the model you use makes a difference.
 
 ![Task Continuity Agent workspace](docs/images/interface.png)
 
-## Features
+## Get started
 
-- **Persistent task state:** original briefs, checkpoints, tool results, and outputs survive model and supervisor restarts.
-- **Independent jobs:** tracked commands, conversions, and renders have their own process identities, deadlines, logs, and results.
-- **Output verification:** completion checks inspect files, structure, hashes, and current visual evidence where supported.
-- **Bounded recovery:** a watchdog, saved model selection, timeouts, and progress checks limit repeated failures.
-- **Capability groups:** core file and job tools, web, desktop, media, optional Blender, and additional MCP servers.
+1. **[Download the ZIP](https://github.com/orcaonmars/task-continuity-agent/archive/refs/heads/main.zip)** and extract it into a folder you can write to. Don't run it from inside the ZIP.
+2. **Double-click `Start Task Continuity.cmd`.** It finds Python or tries to install Python 3.12 for your Windows account, installs the app's dependencies, checks the installation, and creates a Desktop shortcut. The first setup needs internet and can take a few minutes.
+3. **Set up your model in LM Studio.** Setup can offer to install [LM Studio](https://lmstudio.ai/) too. Open it, download and load a model that supports tools, then start the local server in its **Developer** tab. Pick a model that fits your computer; models are downloaded separately.
+4. **Finish in the app.** Open **Connection setup**, keep the default address if you're using LM Studio, and select **Save and check connection**. Once it connects, you're ready to send a task.
 
-## Requirements
+After that, use the Desktop shortcut or double-click the same file again. It reuses a healthy installation. Your existing configuration and saved tasks are kept.
 
-- Windows 10 or 11 and [Python 3.11+](https://www.python.org/downloads/windows/).
-- A local model server with streaming chat completions and tool-call support. [LM Studio](https://lmstudio.ai/) is the default backend; other local OpenAI-compatible servers require [configuration](docs/configuration.md).
-- An image-capable model for screenshot or render review. Text-only models support file, code, and page-structure workflows.
+You need Windows 10 or 11. Automatic Python and LM Studio installation uses Windows App Installer (WinGet) with per-user installs. If WinGet isn't available, setup gives you a manual download link. Open the launcher normally, without **Run as administrator**.
 
-Models are installed separately. Chrome or Edge, ffmpeg, Blender, and extra integrations are required only for their respective capabilities.
+Already using another local model server? Choose **Other compatible server** in Connection setup and enter its API address. It needs streaming chat completions and tool-call support. See [configuration](docs/configuration.md) for the details.
 
-## Installation
+## Give it a real task
 
-Clone the repository, or [download and extract the source](https://github.com/orcaonmars/task-continuity-agent/archive/refs/heads/main.zip) into a writable folder. Run these commands in a normal PowerShell window:
+Select **New task**, describe what you want, include the relevant file or folder paths, and say what the finished result should look like. Choose a time limit and select **Send task**. There are editable examples for project reviews, coding, and research.
 
-```powershell
-git clone https://github.com/orcaonmars/task-continuity-agent.git
-cd task-continuity-agent
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
-```
-
-If using the downloaded ZIP, open PowerShell in the extracted project folder and run only the installer command. The installer creates `.venv`, validates dependencies and tests, writes `data/config.json`, and adds a Desktop shortcut.
-
-In LM Studio, load a tool-capable model and enable **Developer → Start server**. The default API endpoint is `http://127.0.0.1:1234/v1`. See the [LM Studio server documentation](https://lmstudio.ai/docs/developer/core/server) for details.
-
-Start the application:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\start-agent.ps1
-```
-
-The interface opens at `http://127.0.0.1:8765/` by default. The launcher uses a watchdog; closing the browser tab leaves work running. The [installation and usage guide](00-START-HERE.md) covers configuration, controls, and troubleshooting.
-
-## Usage
-
-Select **New task**, describe the objective and relevant files, choose a time limit, and select **Send task**. Include the expected deliverables and completion checks. The interface provides editable presets for project review, implementation, and research.
-
-For example, a source review can produce a useful report without modifying the project:
+For example:
 
 ```text
 Review C:\Projects\example for reliability issues. Do not modify or run the project.
 Save findings.md in this task's folder with prioritized findings, file references,
-evidence, and proposed fixes. Separate confirmed defects from unverified risks.
+evidence, and suggested fixes. Separate confirmed bugs from things that need testing.
 ```
 
-Replace the example path with your project. Outputs normally live under `data/Tasks/<task-id>/`; the task's folder and reported files appear in **Saved progress & files**. An explicitly selected external project can also contain edited files.
+Replace that path with your project. You can use it for file processing, project maintenance, research, and optional Blender work. More [task examples](docs/example-tasks.md) are in the docs.
 
-Time limits range from **0.1 to 72 hours**. Work can finish before the deadline. **Pause** stops reasoning while existing jobs may continue; **Stop** cancels owned jobs; **Resume** continues saved work with a fresh budget. Only one task controls the computer at a time. See [task examples](docs/example-tasks.md) for coding, research, CSV processing, and Blender workflows.
+- **Pause** pauses reasoning; background jobs may keep running.
+- **Stop** cancels the task's background jobs and keeps saved progress.
+- **Resume** continues saved work with a fresh time budget.
 
-## Documentation
+The time limit can be 0.1–72 hours. It's a maximum, so tasks can finish earlier. Only one task controls the computer at a time. Closing the browser tab leaves the app running.
 
-| Guide | Contents |
-| --- | --- |
-| [Installation and usage](00-START-HERE.md) | Setup, configuration, controls, recovery, and troubleshooting |
-| [Configuration](docs/configuration.md) | Providers, model selection, limits, and optional tools |
-| [Task examples](docs/example-tasks.md) | Practical briefs and expected deliverables |
-| [Blender](docs/blender.md) | Background jobs, renders, and optional live control |
-| [Architecture](docs/architecture.md) | Supervisor, actor, persistence, and job ownership |
-| [Release status](RELEASE-STATUS.md) | Verification evidence and known limitations |
-| [Benchmarks](docs/benchmarking.md) | Reproducible reliability evaluation |
-| [Roadmap](docs/roadmap.md) | Current priorities and contribution opportunities |
+## Find your files
 
-## Validation and limitations
+Open **Saved progress & files** for checkpoints and **Open task folder**. Tasks normally save under `data/Tasks/<task-id>/`. Reported documents have Open buttons; scripts are shown in their folder rather than executed. If you asked it to edit an external project, some files can be there instead.
 
-Windows CI runs the regression suite with Python **3.11, 3.12, and 3.14**. Coverage includes 181 Python tests and 20 Node.js interface checks, with a separate pinned-dependency advisory check. Node.js is optional for local development and is not an application dependency. See [workflow results](https://github.com/orcaonmars/task-continuity-agent/actions/workflows/validate.yml), the [November audit](docs/audit-2026-11.md), and [release status](RELEASE-STATUS.md) for the tested scope.
+Keep the computer powered. Desktop interaction needs Windows signed in and unlocked. Shutdown and power loss end running processes.
 
-- An overnight endurance run has been completed in maintainer testing. A 50-hour endurance run remains unverified. A compatible API and capable model are required; recovery does not guarantee task success.
-- The application uses your Windows account's permissions and is not a sandbox. Keep backups. Web tools contact external sites; integrations have their own data handling. See [security and privacy](SECURITY.md).
-- Completion checks do not prove a model's answer is correct. Numerical data tasks require a successful tracked calculation or verification job covering the current outputs; important results still need independent review.
-- Desktop interaction requires an unlocked Windows session. Power loss and shutdown end running processes. Retained tasks, downloads, and outputs have no total storage quota.
+## What it checks, and what it doesn't
 
-## Development
+The app checks required output files, their structure, and recorded verification. Numerical data tasks need a successful tracked calculation or verification job covering the saved outputs. That helps catch unsupported completion claims, but it doesn't prove every answer or algorithm is correct.
+
+The suite contains **190 Python tests and 23 interface checks**. GitHub CI checks Windows with Python 3.11, 3.12, and 3.14, plus known dependency advisories. The [November audit](docs/audit-2026-11.md) includes a failed live trial and what changed afterward. See [release status](RELEASE-STATUS.md) and [Actions](https://github.com/orcaonmars/task-continuity-agent/actions/workflows/validate.yml) for the tested scope and current results. A 50-hour endurance run is still unverified.
+
+This runs with your Windows account's permissions; it isn't a sandbox. Keep backups of important files. Models run through your chosen server, but web tools and optional integrations can contact external services. Saved tasks and downloads don't have a total storage quota. See [security and privacy](SECURITY.md).
+
+## Help and more details
+
+- [Setup, controls, and troubleshooting](00-START-HERE.md)
+- [Model settings and optional tools](docs/configuration.md)
+- [Blender setup](docs/blender.md)
+- [How recovery and background jobs work](docs/architecture.md)
+- [Roadmap](docs/roadmap.md) and [contributing](CONTRIBUTING.md)
+
+Python 3.11+ is required; the launcher can install it when needed. Screenshot or render review needs an image-capable model. Chrome or Edge, ffmpeg, Blender, and extra integrations are only needed for the features that use them.
+
+<details>
+<summary>Manual setup and development</summary>
+
+If you prefer PowerShell, open it in the extracted project folder:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\start-agent.ps1
+```
+
+To validate or build a source ZIP:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build.ps1
 ```
 
-The build validates the source and produces a reproducible source ZIP, checksum, and file manifest in `dist/`. Local configuration, task data, models, browser profiles, and `.venv` are excluded. Follow the [contribution guide](CONTRIBUTING.md) for changes and the [publishing guide](docs/publishing.md) for distribution.
+Node.js is optional for running the interface checks; the app itself doesn't need it. Builds go into `dist/` with a checksum and file manifest. Runtime configuration, task data, models, browser profiles, and `.venv` are excluded. See [publishing](docs/publishing.md) before sharing an installed copy.
 
-## License
+</details>
 
-[MIT](LICENSE). Created by [orcaonmars](https://github.com/orcaonmars).
+## About the project
+
+I'm not an experienced developer. I wrote some of the code myself, but AI helped write a large chunk of the code and docs. I've been directing what I need it to do and using AI to work through bugs, tests, and refinements. It's taken a lot of iteration, and I'm still learning.
+
+If you try it, I'd appreciate hearing which model you used, what task you gave it, and where it worked or got stuck. Suggestions and criticism are welcome.
+
+[MIT licence](LICENSE). Created by [orcaonmars](https://github.com/orcaonmars).

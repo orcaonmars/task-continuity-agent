@@ -34,6 +34,8 @@ from common import (
     ensure_data_layout,
     _tracked_blender_logger,
     resolve_path,
+    CONFIG,
+    validate_settings,
 )
 from acceptance import initialize_contract, validate_completion
 from runtime_policy import artifact_snapshot
@@ -1036,6 +1038,24 @@ def output_file(task, value):
     raise ValueError("Select a file in this task or one of its reported outputs.")
 
 
+def connection_settings():
+    cfg = settings()
+    return {name: cfg[name] for name in ("provider", "api_base", "preferred_model")}
+
+
+def save_connection(data):
+    if ACTIVE:
+        raise ValueError("Stop or finish the current task before changing the model connection.")
+    fields = {"provider", "api_base", "preferred_model"}
+    if set(data) != fields or any(not isinstance(data[name], str) for name in fields):
+        raise ValueError("Provide the server type, address, and optional model name as text.")
+    cfg = settings()
+    cfg.update(data)
+    cfg = validate_settings(cfg)
+    atomic_json(CONFIG, cfg)
+    return {name: cfg[name] for name in fields}
+
+
 class Handler(BaseHTTPRequestHandler):
     def setup(self):
         super().setup()
@@ -1083,6 +1103,8 @@ class Handler(BaseHTTPRequestHandler):
                 (ROOT / "docs/start-here.html").read_text(encoding="utf-8"),
                 "text/html",
             )
+        elif url.path == "/api/setup":
+            self.send(200, connection_settings())
         elif url.path == "/api/status":
             try:
                 model = model_info()
@@ -1157,6 +1179,9 @@ class Handler(BaseHTTPRequestHandler):
             data = json.loads(self.rfile.read(length))
             if not isinstance(data, dict):
                 raise ValueError("Request must contain a JSON object.")
+            if self.path == "/api/setup":
+                self.send(200, save_connection(data))
+                return
             for route, field in (("/api/start", "task"), ("/api/followup", "text")):
                 if self.path == route and not isinstance(data.get(field, ""), str):
                     raise ValueError("Task instructions must be text.")

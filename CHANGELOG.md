@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.2 — 2026-11-07
+
+- Add a double-click launcher with Python discovery, per-user Python installation through WinGet when needed, dependency installation, validation, configuration, and a Desktop shortcut.
+- Offer per-user LM Studio installation on first launch. Model choice and download remain inside LM Studio.
+- Reuse healthy installations, preserve existing settings/tasks, serialize setup, and keep setup logs. Failed installs are not marked complete and never trigger an administrator fallback.
+- Add guided model setup and editable server/model settings in the app. Save-and-check is authenticated, rejects invalid settings, and cannot change a running task's connection.
+- Rewrite the README in a more direct personal voice and put ZIP extraction and the double-click launcher first.
+- Add first-run and connection regressions; the suite now has 190 Python tests and 23 interface checks.
+
 ## 1.0.1 — 2026-11-07
 
 - Distinguish clearly identified input files from required outputs and check directly requested output filenames individually.

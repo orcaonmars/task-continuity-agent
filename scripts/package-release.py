@@ -8,7 +8,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 ROOT_FILES = {
     ".editorconfig",
     ".gitattributes",
@@ -24,6 +24,8 @@ ROOT_FILES = {
     "config.example.json",
     "requirements.txt",
     "install.ps1",
+    "setup.ps1",
+    "Start Task Continuity.cmd",
     "start-agent.ps1",
     "watch-agent.ps1",
     "uninstall.ps1",

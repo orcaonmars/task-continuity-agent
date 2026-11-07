@@ -113,6 +113,61 @@ function environment({fetch = async url => idleResponse(url), blockedStorage = f
   };
 }
 
+test('connection setup saves only its fields without submitting work or losing the draft', async () => {
+  const posts = [];
+  const ui = environment({fetch: async (url, options) => {
+    if (url === '/api/setup') {
+      if (options.method === 'POST') {
+        posts.push(JSON.parse(options.body));
+        return response({ok: true});
+      }
+      return response({provider:'lmstudio', api_base:'http://127.0.0.1:1234/v1', preferred_model:'saved-model'});
+    }
+    return idleResponse(url);
+  }});
+  await tick();
+  ui.edit('Keep this task draft');
+  await ui.elements.get('setup-toggle').onclick();
+  assert.equal(ui.elements.get('setup-model').value, 'saved-model');
+  ui.elements.get('setup-model').value = 'new-model';
+  await ui.run('refresh()');
+  assert.equal(ui.elements.get('setup-model').value, 'new-model');
+  await ui.run('saveSetup()');
+  assert.deepEqual(posts, [{provider:'lmstudio', api_base:'http://127.0.0.1:1234/v1', preferred_model:'new-model'}]);
+  assert.equal(ui.elements.get('prompt').value, 'Keep this task draft');
+});
+
+test('failed connection saves retain the form values and restore the save button', async () => {
+  const ui = environment({fetch: async (url, options) => {
+    if (url === '/api/setup' && options.method === 'POST') return response({error:'Stop the current task first.'}, 400);
+    return idleResponse(url);
+  }});
+  await tick();
+  ui.elements.get('setup-provider').value = 'lmstudio';
+  ui.elements.get('setup-url').value = 'http://127.0.0.1:1234/v1';
+  ui.elements.get('setup-model').value = 'keep-model';
+  await ui.run('saveSetup()');
+  assert.equal(ui.elements.get('setup-model').value, 'keep-model');
+  assert.equal(ui.elements.get('setup-save').disabled, false);
+  assert.match(ui.elements.get('setup-message').textContent, /Stop the current task/);
+});
+
+test('first-run model errors open guided setup and a ready model hides it', async () => {
+  let ready = false;
+  const ui = environment({fetch: async url => {
+    if (url === '/api/setup') return response({provider:'lmstudio', api_base:'http://127.0.0.1:1234/v1', preferred_model:''});
+    return response({model: ready ? {model:'ready-model'} : {error:'No loaded model'}, tasks:[]});
+  }});
+  await tick();
+  assert.equal(ui.elements.get('setup-panel').hidden, false);
+  assert.equal(ui.elements.get('setup-panel').open, true);
+  assert.match(ui.elements.get('setup-message').textContent, /Start your model server/);
+  assert.match(ui.elements.get('setup-message').title, /No loaded model/);
+  ready = true;
+  await ui.run('refresh()');
+  assert.equal(ui.elements.get('setup-panel').hidden, true);
+});
+
 test('finished tasks cannot be paused or stopped through the controls', async () => {
   const ui = environment();
   await tick();

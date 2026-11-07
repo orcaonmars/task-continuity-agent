@@ -1,6 +1,8 @@
 # Advanced configuration
 
-The installer creates `data/config.json` from the defaults in `config.example.json`. Edit the local file; restart the agent after changing configuration so the supervisor and tools use the same settings. Invalid values produce an explicit configuration error.
+For the server type, address, and model name, use **Connection setup** in the app. Save changes while no task is active; the supervisor and subsequently launched tools read the saved settings. Existing tasks and unrelated settings are kept.
+
+For advanced options, the installer creates `data/config.json` from `config.example.json`. Edit the local file and restart the agent so the supervisor and tools use the same settings. Invalid values produce an explicit configuration error.
 
 ## Provider and model
 

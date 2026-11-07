@@ -63,6 +63,16 @@
     .guide { margin-left: 4px; font-size: 12px; color: var(--muted); }
     #notice, #connection-notice { font-size: 13px; line-height: 1.6; margin-top: 14px; padding: 11px 13px; background: var(--surface); border-left: 2px solid #181818; overflow-wrap: anywhere; }
     #notice:empty, #connection-notice:empty { display: none; }
+    .setup { margin-top: 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+    .setup > summary { padding: 12px 14px; font-size: 13px; }
+    .setup-body { max-height: min(48vh, 420px); overflow: auto; padding: 0 16px 16px; font-size: 13px; line-height: 1.7; }
+    .setup-body ol { padding-left: 20px; }
+    .setup-body h2 { font-size: 16px; margin: 6px 0; }
+    .setup-fields { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin: 12px 0; }
+    .setup label { display: block; font-size: 12px; }
+    .setup input, .setup select { display: block; width: 100%; margin-top: 4px; padding: 8px; font: inherit; min-width: 0; border: 1px solid var(--line); border-radius: 5px; background: #fff; }
+    .setup .model-field { grid-column: 1 / -1; }
+    #setup-message { margin: 8px 0 0; overflow-wrap: anywhere; }
     #timing { margin-top: 14px; font-size: 11px; }
     #timing:empty { display: none; }
     #outputs:empty { display: none; }
@@ -105,6 +115,8 @@
     @media (min-width: 1600px) { main { padding-left: 64px; padding-right: 64px; } }
     @media (max-width: 1000px) { aside { width: 226px; padding: 24px 12px 16px; } main { padding: 24px; } .examples { gap: 8px; } .examples button { padding: 14px 11px; } header { gap: 10px; flex-wrap: wrap; } .heading { flex-basis: 100%; } .controls { margin-left: -10px; } .guide { margin-left: auto; } }
     @media (max-width: 680px) {
+      .setup-body { max-height: clamp(90px, calc(100dvh - 580px), 32vh); }
+      .setup-fields { grid-template-columns: 1fr; }
       body { flex-direction: column; }
       aside { width: 100%; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px 10px; border-right: 0; border-bottom: 1px solid var(--line); }
       .brand { padding: 0; flex: 1; }
@@ -172,10 +184,32 @@
         <button type="button" data-action="resume" title="Continue with saved progress and the time budget below." disabled>Resume</button>
         <button type="button" data-action="stop" class="danger" title="Stop reasoning and cancel background jobs. Saved progress is kept." disabled>Stop</button>
       </div>
-      <a class="guide" href="/guide" target="_blank" rel="noopener">Setup &amp; guide ↗</a>
+      <button type="button" id="setup-toggle" class="guide">Connection setup</button>
+      <a class="guide" href="/guide" target="_blank" rel="noopener">Guide ↗</a>
     </header>
 
     <div id="connection-notice" role="status" aria-live="polite"></div>
+    <details id="setup-panel" class="setup" hidden>
+      <summary>Connect your local model</summary>
+      <div class="setup-body">
+        <h2>One-time model setup</h2>
+        <ol>
+          <li>Open <a href="https://lmstudio.ai/" target="_blank" rel="noopener noreferrer">LM Studio</a>. If it isn't installed, the link has the download.</li>
+          <li>Choose a model that supports tools, download it, and load it. Pick one that fits your computer; model downloads can be large.</li>
+          <li>In LM Studio's <strong>Developer</strong> tab, start the local server. Keep the default address below unless you changed it.</li>
+        </ol>
+        <p>Already using another compatible server? Choose it below. Your tasks and other settings are kept.</p>
+        <form id="setup-form">
+          <div class="setup-fields">
+            <label for="setup-provider">Model server<select id="setup-provider"><option value="lmstudio">LM Studio</option><option value="openai-compatible">Other compatible server</option></select></label>
+            <label for="setup-url">Server address<input id="setup-url" type="url" value="http://127.0.0.1:1234/v1" required></label>
+            <label for="setup-model" class="model-field">Model name (optional)<input id="setup-model" type="text" placeholder="Leave blank to use the loaded model"></label>
+          </div>
+          <button type="submit" id="setup-save">Save and check connection</button>
+          <p id="setup-message" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </details>
     <div id="notice" role="status" aria-live="polite"></div>
     <div id="timing" class="hint"></div>
     <div id="outputs" class="bar"></div>
@@ -228,6 +262,8 @@
     let lastOutputs = '';
     let refreshing = false;
     let selectionVersion = 0;
+    let setupLoaded = false;
+    let setupRequested = false;
 
     const $ = (id) => document.getElementById(id);
 
@@ -296,6 +332,35 @@
           $('notice').textContent = 'Preset added. Replace [bracketed details] before sending.';
           $('prompt').focus();
         };
+      }
+    }
+
+    async function loadSetup() {
+      if (setupLoaded) return;
+      const config = await api('/api/setup');
+      $('setup-provider').value = config.provider || 'lmstudio';
+      $('setup-url').value = config.api_base || 'http://127.0.0.1:1234/v1';
+      $('setup-model').value = config.preferred_model || '';
+      setupLoaded = true;
+    }
+
+    async function saveSetup() {
+      if ($('setup-save').disabled) return;
+      $('setup-save').disabled = true;
+      $('setup-save').setAttribute('aria-busy', 'true');
+      try {
+        await api('/api/setup', {
+          provider: $('setup-provider').value,
+          api_base: $('setup-url').value.trim(),
+          preferred_model: $('setup-model').value.trim(),
+        });
+        $('setup-message').textContent = 'Saved. Checking the connection…';
+        await refresh();
+      } catch (error) {
+        $('setup-message').textContent = error.message;
+      } finally {
+        $('setup-save').disabled = false;
+        $('setup-save').setAttribute('aria-busy', 'false');
       }
     }
 
@@ -585,7 +650,7 @@
         const info = state.model || {};
         $('status').dataset.state = info.error ? 'offline' : 'online';
         $('status').textContent = info.error
-          ? 'Model unavailable · open Setup & guide'
+          ? 'Model unavailable · open Connection setup'
           : (info.model || 'No loaded model') +
             ' · ' +
             (info.vision ? 'vision ready' : 'text only') +
@@ -593,8 +658,18 @@
             (info.provider || 'local');
         $('status').title = info.error || 'The supervisor is connected. Your model handles the task instructions.';
         $('connection-notice').textContent = info.error
-          ? 'Model unavailable. Check that your local model server is running and the selected model is loaded. Open Setup & guide for configuration.'
+          ? 'Model unavailable. Open Connection setup to load a model or check the server address.'
           : '';
+        if (info.error) {
+          await loadSetup();
+          $('setup-message').textContent = 'Not connected yet. Start your model server, load a model that supports tools, and check the server address above.';
+          $('setup-message').title = String(info.error).slice(0, 400);
+          $('setup-panel').hidden = false;
+          if (!selected) $('setup-panel').open = true;
+        } else {
+          $('setup-panel').hidden = !setupRequested;
+          if (setupLoaded) $('setup-message').textContent = 'Connected to ' + (info.model || 'your model') + '. You can send a task now.';
+        }
 
         renderTasks(state.tasks || []);
         await renderSelectedTask();
@@ -686,6 +761,13 @@
     }
 
     $('new-task').onclick = newTask;
+    $('setup-toggle').onclick = async () => {
+      setupRequested = true;
+      $('setup-panel').hidden = false;
+      $('setup-panel').open = true;
+      try { await loadSetup(); } catch (error) { $('setup-message').textContent = error.message; }
+    };
+    $('setup-form').onsubmit = (event) => { event.preventDefault(); saveSetup(); };
     $('open-folder').onclick = () => action('folder');
     $('send').onclick = send;
     const savedHours = Number(saved(HOURS_KEY));
