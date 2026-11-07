@@ -91,6 +91,44 @@ def _extensions(text):
     )
 
 
+def _deliverable_text(text):
+    """Exclude clearly identified input files from output inference.
+
+    This remains a conservative language heuristic, not a complete task parser.
+    Preserve the original brief; only the inferred completion requirements change.
+    """
+    output_verbs = r"create|make|render|write|save|export|produce|build|generate|deliver|convert"
+    conversion = re.compile(r"\b(convert|transform)\b(.*?)(?=\b(?:to|into)\b)", re.I)
+    text = conversion.sub(
+        lambda match: match[1] + " " if _extensions(match[2]) else match[0], text
+    )
+    sources = re.compile(
+        r"\b(?:read|review|inspect|analy[sz]e|summari[sz]e|using|from|open)\b"
+        r"(?:(?!\b(?:" + output_verbs + r")\b).)*",
+        re.I | re.S,
+    )
+    return sources.sub(
+        lambda match: " " if _extensions(match[0]) else match[0], text
+    )
+
+
+def _output_filenames(text):
+    """Recognize direct named-output requests such as 'save a.json and b.json'."""
+    extensions = "|".join(re.escape(ext[1:]) for ext in sorted(KNOWN))
+    filename = r"(?:[A-Za-z]:)?[\w./\\-]+\.(?:" + extensions + r")\b"
+    requested = re.compile(
+        r"\b(?:create|write|save|export|produce|deliver)\s+"
+        r"(?:(?:a|an|the)\s+)?("
+        + filename + r"(?:\s*(?:,|and)\s*" + filename + r")*)",
+        re.I,
+    )
+    names = set()
+    for match in requested.finditer(text):
+        for path in re.finditer(filename, match[1], re.I):
+            names.add(path[0].replace("\\", "/").rsplit("/", 1)[-1].lower())
+    return sorted(names)
+
+
 def _durable_deliverable_expected(text, required_extensions, visual=False):
     """Classify whether successful completion should point to a durable path."""
     if required_extensions or visual:
@@ -140,7 +178,7 @@ def initialize_contract(task, objective):
     atomic_text(task / "user-brief.md", original)
     low = original.lower()
     request = objective.lower()
-    positive = _positive(low)
+    positive = _deliverable_text(_positive(low))
     question = request.lstrip().startswith(
         ("how ", "what ", "why ", "when ", "where ", "who ", "explain ", "tell me ")
     )
@@ -211,6 +249,10 @@ def initialize_contract(task, objective):
     contract = {
         "objective_id": digest,
         "required_extensions": required,
+        "required_filenames": _output_filenames(positive) if not question else [],
+        "calculation_verification_required": not question
+        and bool(re.search(r"\b(?:calculate|compute|sum|totals?|average|mean|median|statistics)\b", low))
+        and bool(re.search(r"\b(?:csv|dataset|spreadsheet|arithmetic|numeric|numerical|revenue|units|rows)\b", low)),
         "requires_action": bool(action or required),
         "visual_review_required": visual_required,
         "durable_deliverable_required": bool(action or required)
@@ -418,6 +460,34 @@ def validate_completion(task, report):
             and file_sha256(path) != record["sha256"]
         ):
             raise ValueError(f"Reported deliverable changed after verification: {path}")
+    delivered_names = {path.name.lower() for path in paths if path.is_file()}
+    for name in contract.get("required_filenames", []):
+        if name not in delivered_names:
+            raise ValueError(f"Missing explicitly requested deliverable: {name}")
+    if contract.get("calculation_verification_required"):
+        # Execution is evidence of a check, not proof of arbitrary semantic
+        # correctness. Require it to cover the current deliverable revision.
+        latest_output = max((path.stat().st_mtime for path in paths if path.is_file()), default=0)
+        verified = False
+        for folder in (task / "Jobs").glob("*"):
+            spec = read_json(folder / "job.json", {}) or {}
+            result = read_json(folder / "result.json", {}) or {}
+            finished = result.get("finished_at", 0)
+            if (
+                spec.get("argv")
+                and result.get("exit_code") == 0
+                and isinstance(finished, (int, float))
+                and finished >= latest_output
+            ):
+                verified = True
+                break
+        if not verified:
+            raise ValueError(
+                "Numerical data tasks require a successful tracked calculation or verification job "
+                "covering the current output files. Use code to calculate and save the results, "
+                "or run a verification script after saving them; inspect its logs before finishing. "
+                "A claim of manual arithmetic verification is not sufficient."
+            )
     if contract.get("visual_review_required"):
         review = read_json(task / "quality-review.json", {})
         if (

@@ -70,6 +70,7 @@ function environment({fetch = async url => idleResponse(url), blockedStorage = f
   const controls = ['pause', 'resume', 'stop'].map(action => {
     const element = new Element(action);
     element.dataset.action = action;
+    element.disabled = true; // Matches the initial disabled attributes in HTML.
     return element;
   });
   const storage = new Map(Object.entries(saved));
@@ -98,7 +99,7 @@ function environment({fetch = async url => idleResponse(url), blockedStorage = f
   });
   vm.runInContext(source, context);
   return {
-    elements, storage,
+    elements, storage, controls,
     run: code => vm.runInContext(code, context),
     edit(text) {
       elements.get('prompt').value = text;
@@ -111,6 +112,56 @@ function environment({fetch = async url => idleResponse(url), blockedStorage = f
     },
   };
 }
+
+test('finished tasks cannot be paused or stopped through the controls', async () => {
+  const ui = environment();
+  await tick();
+  assert.ok(ui.controls.every(button => button.disabled));
+  ui.run("selected = 'a'; taskHeading('Finished task', 'completed')");
+  assert.equal(ui.controls.find(button => button.dataset.action === 'pause').disabled, true);
+  assert.equal(ui.controls.find(button => button.dataset.action === 'stop').disabled, true);
+  assert.equal(ui.controls.find(button => button.dataset.action === 'resume').disabled, false);
+  ui.run("taskHeading('Running task', 'running')");
+  assert.equal(ui.controls.find(button => button.dataset.action === 'pause').disabled, false);
+  assert.equal(ui.controls.find(button => button.dataset.action === 'stop').disabled, false);
+});
+
+test('model connection problems remain visible outside the mobile-hidden sidebar', async () => {
+  let ready = false;
+  const ui = environment({fetch: async () => response({
+    model: ready ? {model: 'test'} : {error: 'No loaded model'}, tasks: [],
+  })});
+  await tick();
+  assert.match(ui.elements.get('connection-notice').textContent, /Model unavailable/);
+  ready = true;
+  await ui.run('refresh()');
+  assert.equal(ui.elements.get('connection-notice').textContent, '');
+});
+
+test('saved progress is readable and script outputs are shown in their folder', async () => {
+  const posts = [];
+  const ui = environment({fetch: async (url, options) => {
+    if (options.method === 'POST') {
+      posts.push([url, JSON.parse(options.body)]);
+      return response({ok: true});
+    }
+    if (url.startsWith('/api/task/')) return response({
+      meta: {status: 'completed'}, events: [], task_folder: 'C:\\demo',
+      progress: {stage: 'Verified', completed: ['Built the app'], next_actions: ['Review results']},
+      result: {summary: 'Done', verification: 'Tests passed', files: [{path: 'C:\\demo\\app.py'}]},
+    });
+    return idleResponse(url);
+  }});
+  await tick();
+  ui.run("selected = 'a'");
+  await ui.run('renderSelectedTask()');
+  assert.match(ui.elements.get('progress').textContent, /Next steps:\n• Review results/);
+  assert.match(ui.elements.get('progress').textContent, /Verification: Tests passed/);
+  assert.equal(ui.elements.get('outputs').children[0].textContent, 'Show app.py in folder');
+  await ui.elements.get('open-folder').onclick();
+  assert.equal(posts[0][0], '/api/folder');
+  assert.equal(posts[0][1].id, 'a');
+});
 
 test('budgets accept 50 hours and reject empty, non-finite and out-of-range values', async () => {
   const ui = environment();

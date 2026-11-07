@@ -33,6 +33,7 @@ from common import (
     tail_bytes,
     ensure_data_layout,
     _tracked_blender_logger,
+    resolve_path,
 )
 from acceptance import initialize_contract, validate_completion
 from runtime_policy import artifact_snapshot
@@ -983,6 +984,9 @@ def list_tasks():
             continue
         if path.parent.name != task_id:
             continue
+        created = meta.get("created", 0)
+        if isinstance(created, bool) or not isinstance(created, (int, float)) or not math.isfinite(created):
+            continue
         tasks.append(meta)
     return sorted(tasks, key=lambda m: m.get("created", 0), reverse=True)
 
@@ -1006,6 +1010,30 @@ def task_hours(value=10):
     if not math.isfinite(hours) or not 0.1 <= hours <= 72:
         raise ValueError("Time budget must be between 0.1 and 72 hours.")
     return hours
+
+
+OPENABLE_EXTENSIONS = {
+    ".blend", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".mp4",
+    ".txt", ".md", ".html", ".pdf", ".csv", ".json", ".xlsx", ".docx", ".pptx",
+}
+
+
+def output_file(task, value):
+    """Resolve a selected file without authorizing arbitrary external paths."""
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("Select an existing output file.")
+    task = task.resolve()
+    path = resolve_path(value, base=task)
+    if not path.is_file():
+        raise ValueError("The output file no longer exists.")
+    if path.is_relative_to(task):
+        return path
+    result = read_json(task / "result.json", {}) or {}
+    for record in result.get("files", []):
+        if isinstance(record, dict) and isinstance(record.get("path"), str):
+            if resolve_path(record["path"], base=task) == path:
+                return path
+    raise ValueError("Select a file in this task or one of its reported outputs.")
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -1129,6 +1157,9 @@ class Handler(BaseHTTPRequestHandler):
             data = json.loads(self.rfile.read(length))
             if not isinstance(data, dict):
                 raise ValueError("Request must contain a JSON object.")
+            for route, field in (("/api/start", "task"), ("/api/followup", "text")):
+                if self.path == route and not isinstance(data.get(field, ""), str):
+                    raise ValueError("Task instructions must be text.")
             # Validate before writing steering, results, or task metadata.
             if self.path in ("/api/start", "/api/resume", "/api/followup"):
                 hours = task_hours(data.get("hours", 10))
@@ -1178,24 +1209,12 @@ class Handler(BaseHTTPRequestHandler):
                     "Another task is running. Stop or finish it before resuming this task."
                 )
             if self.path == "/api/open":
-                p = Path(data.get("path", "")).resolve()
-                if not p.is_relative_to(task.resolve()) or not p.is_file():
-                    raise ValueError(
-                        "Open an existing file in the selected task folder."
-                    )
-                if p.suffix.lower() not in (
-                    ".blend",
-                    ".png",
-                    ".jpg",
-                    ".jpeg",
-                    ".mp4",
-                    ".txt",
-                    ".md",
-                    ".html",
-                    ".pdf",
-                ):
-                    raise ValueError("Open this file manually from its folder.")
-                os.startfile(str(p))
+                p = output_file(task, data.get("path", ""))
+                # Never execute scripts/binaries merely to inspect a deliverable.
+                target = p if p.suffix.lower() in OPENABLE_EXTENSIONS else p.parent
+                os.startfile(str(target))
+            elif self.path == "/api/folder":
+                os.startfile(str(task.resolve()))
             elif self.path == "/api/stop":
                 if ACTIVE == task:
                     STOP.set()
@@ -1203,7 +1222,9 @@ class Handler(BaseHTTPRequestHandler):
                     if PROC:
                         STEER.set()
                         terminate_tree(PROC, preserve_jobs=False)
-                else:
+                elif (read_json(task / "task.json", {}) or {}).get("status") not in (
+                    "completed", "blocked", "stopped", "time_limit"
+                ):
                     save_meta(task, status="stopped")
                 stop_task_jobs(task)
                 log(task, "system", "Stop requested. Saved progress is retained.")

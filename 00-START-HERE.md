@@ -61,7 +61,7 @@ Only one task controls the computer at a time.
 
 ### Outputs and recovery
 
-Tasks normally save under `data/Tasks/<task-id>/`. Select a task in the sidebar, then open **Saved progress & files** for its folder path, checkpoints, and reported outputs. Completed files can appear as **Open** buttons. An explicitly selected external project can contain the edited files instead.
+Tasks normally save under `data/Tasks/<task-id>/`. Select a task in the sidebar, then open **Saved progress & files** for readable checkpoints and **Open task folder**. Reported documents can appear as **Open** buttons; scripts and other unsupported file types use **Show in folder** instead of executing them. An explicitly selected external project can contain the edited files instead.
 
 The original brief, checkpoints, job records, and outputs remain across model-session restarts. If the app stops, relaunch it normally. Eligible interrupted tasks recover while their deadline is valid; completed, paused, blocked, stopped, and expired tasks need **Resume** or a follow-up. Inspect existing files and jobs before retrying an interrupted action, since it may already have completed. Continue polling a running job; changed commands require a new job name.
 

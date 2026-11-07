@@ -15,6 +15,7 @@ CORE = {
     "write_text",
     "list_files",
     "shell",
+    "run_python",
     "jobs",
     "task_brief",
     "task_checkpoint",

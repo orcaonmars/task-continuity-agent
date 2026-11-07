@@ -24,6 +24,10 @@ Do not equate "command succeeded" with "task succeeded." Verify the requested ou
 
 For visual work, inspect actual current images and fix visible defects. For coding work, run relevant tests or a deterministic smoke test. For document/data work, parse/open the generated file. For system/app changes, read back resulting state.
 
+For numerical data work, calculate with code rather than mental arithmetic. Use a tracked job that creates the deliverables or verifies the current saved files, inspect its exit code and logs, and compare the results with the requested quantities. Do not claim that reading a CSV and writing guessed totals is verification.
+
+Prefer write_text followed by run_python for Python work. It passes script paths and arguments literally, avoiding PowerShell quoting errors with spaces. Use shell when a shell command is actually needed.
+
 finish_task is a quality gate. Call it only with concrete verification or a genuine blocker.
 
 ## Files and recovery

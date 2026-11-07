@@ -79,10 +79,11 @@ Time limits range from **0.1 to 72 hours**. Work can finish before the deadline.
 
 ## Validation and limitations
 
-Windows CI runs the regression suite with Python **3.11, 3.12, and 3.14**. Coverage includes 169 Python tests and 17 Node.js interface checks. Node.js is optional for local development and is not an application dependency. See [workflow results](https://github.com/orcaonmars/task-continuity-agent/actions/workflows/validate.yml) and [release status](RELEASE-STATUS.md) for the tested scope.
+Windows CI runs the regression suite with Python **3.11, 3.12, and 3.14**. Coverage includes 181 Python tests and 20 Node.js interface checks, with a separate pinned-dependency advisory check. Node.js is optional for local development and is not an application dependency. See [workflow results](https://github.com/orcaonmars/task-continuity-agent/actions/workflows/validate.yml), the [November audit](docs/audit-2026-11.md), and [release status](RELEASE-STATUS.md) for the tested scope.
 
 - An overnight endurance run has been completed in maintainer testing. A 50-hour endurance run remains unverified. A compatible API and capable model are required; recovery does not guarantee task success.
 - The application uses your Windows account's permissions and is not a sandbox. Keep backups. Web tools contact external sites; integrations have their own data handling. See [security and privacy](SECURITY.md).
+- Completion checks do not prove a model's answer is correct. Numerical data tasks require a successful tracked calculation or verification job covering the current outputs; important results still need independent review.
 - Desktop interaction requires an unlocked Windows session. Power loss and shutdown end running processes. Retained tasks, downloads, and outputs have no total storage quota.
 
 ## Development

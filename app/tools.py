@@ -38,13 +38,14 @@ from work_tools import (
     write_text,
     list_files,
     shell,
+    run_python,
     jobs,
     blender_project,
     writable,
     _backup_existing,
 )
 
-for helper in (read_text, write_text, list_files, shell, jobs, blender_project):
+for helper in (read_text, write_text, list_files, shell, run_python, jobs, blender_project):
     mcp.tool()(helper)
 from production import (
     quality_review,

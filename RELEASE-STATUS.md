@@ -1,6 +1,6 @@
-# Release status — v1.0.0
+# Release status — v1.0.1
 
-Experimental Windows source release, refined and verified locally on 2026-10-27. Repository: [orcaonmars/task-continuity-agent](https://github.com/orcaonmars/task-continuity-agent). Hosted results are recorded in [Actions](https://github.com/orcaonmars/task-continuity-agent/actions/workflows/validate.yml).
+Experimental Windows source release, refined locally on 2026-11-07. Repository: [orcaonmars/task-continuity-agent](https://github.com/orcaonmars/task-continuity-agent). Hosted results are recorded in [Actions](https://github.com/orcaonmars/task-continuity-agent/actions/workflows/validate.yml). The [November audit](docs/audit-2026-11.md) separates current evidence from earlier trials and maintainer-reported experience.
 
 ## Maintainer experience
 
@@ -8,7 +8,9 @@ In my testing, it usually works, but it sometimes gets stuck and needs manual in
 
 ## Current verification
 
-- 169 Python regression tests and 17 dependency-free Node.js interface checks pass on Python 3.14.2. Compilation of app, tests, and release scripts, dependency consistency, bug-focused Ruff checks, PowerShell parsing, and source/privacy checks pass.
+- The current regression suite contains 181 Python tests and 20 dependency-free Node.js interface checks. Validation includes compilation, dependency consistency, bug-focused Ruff checks, PowerShell parsing, and source/privacy checks; consult Actions for the result on each published revision.
+- The November audit reproduced input/output inference defects, missing named outputs, completed-task relabelling, malformed instruction handling, and corrupt task-list metadata, then added targeted regressions. Numerical data tasks now require recorded successful execution covering current outputs. This is stronger evidence than a manual-verification claim, not a proof that arbitrary calculations are correct.
+- Pinned dependencies were checked with pip-audit 2.10.1. Pillow, certifi, and OpenTelemetry API were updated following advisory findings; a repeat audit reported no known vulnerabilities in the pinned requirements. Advisory databases and package status can change; CI repeats the check.
 - A real local tool-capable model created the exact requested text file, read it back, and completed through independent verification. A deliberately broken optional MCP executable was configured throughout; the core file task completed without initializing it.
 - During another live model task, the actor was killed while a tracked 50-second command was running. The supervisor was then killed. Its watchdog restarted it, the same job survived both interruptions, the original objective and saved checkpoint were unchanged, and the resumed task verified both deliverables and completed.
 - That live check exposed a Windows MCP ownership defect missed by the older direct-launch tests. The fix retains core MCP process cleanup and permits explicitly detached runners to survive it. Three real MCP regressions cover actor-owner termination, subsequent explicit cancellation, and denied breakaway without an unsafe fallback.
@@ -48,4 +50,4 @@ Atomic state writes have bounded pending fallbacks for Windows locks. File-tool 
 
 ## Release artifacts
 
-Build with `scripts/build.ps1`. The source ZIP is `dist/task-continuity-agent-1.0.0.zip`; `dist/SHA256SUMS.txt` is its authoritative checksum and `dist/release-manifest.json` contains per-file hashes. Upload the reviewed archive contents rather than the installed folder. See [publishing instructions](docs/publishing.md).
+Build with `scripts/build.ps1`. The source ZIP is `dist/task-continuity-agent-1.0.1.zip`; `dist/SHA256SUMS.txt` is its authoritative checksum and `dist/release-manifest.json` contains per-file hashes. Upload the reviewed archive contents rather than the installed folder. See [publishing instructions](docs/publishing.md).

@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.1 — 2026-11-07
+
+- Distinguish clearly identified input files from required outputs and check directly requested output filenames individually.
+- Require recorded successful execution covering the current outputs for numerical data tasks; a live audit caught incorrect totals previously accepted on a manual-verification claim.
+- Add `run_python` for tracked Python jobs with literal paths and arguments, avoiding shell quoting failures.
+- Preserve completed task status when Stop is requested; ignore corrupt task timestamps and reject non-text instructions before creating work.
+- Show model connection problems on mobile, render readable checkpoints, add Open task folder, and support opening reported external outputs without allowing arbitrary external paths. Script outputs open their folder rather than execute.
+- Update Pillow to 13.0.0, certifi to 2026.10.23, and OpenTelemetry API to 1.45.2 following the dependency audit. Add dependency-advisory checks to CI.
+- Expand regression coverage to 181 Python tests and 20 interface checks. See [audit evidence and remaining limits](docs/audit-2026-11.md).
+
+## Earlier 1.0.0 refinement
+
 - Keep the newest pre-edit backups by their creation timestamps rather than inherited source modification times, including when edits share a timestamp.
 
 ## 1.0.0 — refined 2026-10-27

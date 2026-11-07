@@ -466,6 +466,28 @@ def write_job_script(path, code):
     atomic_text(path, code)
 
 
+def run_python(
+    script: str, job_name: str, arguments: list[str] | None = None,
+    timeout_seconds: int = 3600,
+) -> str:
+    """Run an existing Python script as a tracked job without shell quoting.
+
+    Write code with write_text first. Script paths and arguments are passed
+    literally, including spaces and shell metacharacters. Use jobs(status) for
+    results; use a new job_name for a changed script or a retry.
+    """
+    path = resolve_path(script)
+    if path.suffix.lower() != ".py" or not path.is_file():
+        raise ValueError("Select an existing .py script.")
+    if arguments is not None and (
+        not isinstance(arguments, list) or not all(isinstance(value, str) for value in arguments)
+    ):
+        raise ValueError("arguments must be a list of strings.")
+    return json.dumps(start_job(
+        job_name, [str(PYTHON), str(path), *(arguments or [])], timeout=timeout_seconds
+    ), ensure_ascii=False)
+
+
 def shell(command: str, job_name: str, timeout_seconds: int = 3600) -> str:
     """Start a normal-user PowerShell command as a tracked background job. Returns immediately.
     Use jobs(status) to read logs/exit code; do not relaunch while running. Same job_name is idempotent.
