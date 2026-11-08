@@ -37,8 +37,6 @@ evidence, and suggested fixes. Separate confirmed bugs from things that need tes
 
 Replace that path with your project. You can use it for file processing, project maintenance, research, and optional Blender work. More [task examples](docs/example-tasks.md) are in the docs.
 
-For prompt-to-scene animation work, select **Make a Blender video** and follow the [overnight Blender workflow](docs/overnight-blender.md).
-
 - **Pause** pauses reasoning; background jobs may keep running.
 - **Stop** cancels the task's background jobs and keeps saved progress.
 - **Resume** continues saved work with a fresh time budget.

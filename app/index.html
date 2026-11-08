@@ -86,7 +86,7 @@
     .welcome { width: 100%; flex-shrink: 0; max-width: 720px; margin: auto; padding: 10px 0; }
     .welcome h2 { font-size: clamp(25px, 3vw, 36px); font-weight: 500; letter-spacing: -.045em; line-height: 1.15; margin: 17px 0; }
     .welcome-copy { max-width: 510px; color: var(--muted); line-height: 1.8; font-size: 14px; margin: 0; }
-    .examples { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 26px 0 14px; }
+    .examples { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 26px 0 14px; }
     .examples button { text-align: left; padding: 18px 15px; line-height: 1.6; }
     .example-number { display: block; color: #777; font: 10px Consolas, monospace; margin-bottom: 16px; }
     .examples strong { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; }
@@ -228,7 +228,6 @@
           <button type="button" data-example="review"><span class="example-number" aria-hidden="true">01 /</span><strong>Review a project</strong><span class="hint">Inspect code without changing it.<br>Save findings and suggested fixes.</span></button>
           <button type="button" data-example="code"><span class="example-number" aria-hidden="true">02 /</span><strong>Build or improve</strong><span class="hint">Make changes to a project.<br>Run checks and document the result.</span></button>
           <button type="button" data-example="research"><span class="example-number" aria-hidden="true">03 /</span><strong>Research &amp; organize</strong><span class="hint">Compare sources and save a report.<br>Uses the optional web tools.</span></button>
-          <button type="button" data-example="video"><span class="example-number" aria-hidden="true">04 /</span><strong>Make a Blender video</strong><span class="hint">Find assets, build a scene, and render.<br>Uses web, Blender, and media tools.</span></button>
         </div>
         <p class="welcome-note">Presets fill a draft. See the <a href="/guide" target="_blank" rel="noopener">setup guide</a> for model configuration and optional tools.</p>
       </div>
@@ -317,7 +316,6 @@
       $('events').replaceChildren($('welcome').content.cloneNode(true));
       $('events').scrollTop = 0;
       const examples = {
-        video: 'Make a Blender video from this brief: [describe the scene, style, and camera movement]. Target duration: [seconds], resolution: [width x height], frame rate: [fps]. Work in this task folder. Enable web, Blender, and media tools as needed. Find free downloadable assets from official sources and record each source, creator, and stated licence in assets.md. Prefer downloads that do not need login; if an asset is unavailable, use another suitable asset or build a procedural substitute and document the change. Do not spend the whole budget searching. Inspect downloaded archives and imported geometry, scale, materials, and texture paths. Use isolated background Blender jobs; the live bridge is optional. Save a complete rough scene early, then refine camera, animation, lighting, and materials. Save editable scene.blend, preview.png, assets.md, and handoff.md. Pack supported external resources and keep any remaining required files in the task folder. Benchmark a short low-resolution preview before the full render and leave resources for the model. If the remaining budget permits, render numbered frames in a scene-version-specific folder, encode final.mp4, and verify it with ffprobe and decoded frame samples. Use image inspection only if the model supports it; otherwise report visual quality as unverified. Poll existing jobs rather than relaunching them, checkpoint milestones, and preserve partial results if time runs out. In handoff.md record what is finished, any substitutions or defects, and exactly how to continue. Never report an unfinished video as complete.',
         review: "Review [full project folder path] for reliability defects. Use read-only source inspection; do not edit project files, run project code, install dependencies, or publish changes. Save findings.md in this task's folder with prioritized findings, file references, supporting evidence, and suggested fixes. Distinguish confirmed defects from possible risks and note any checks that require execution. Report the saved path when finished.",
         research: 'Research [topic] using the web. Save report.md with source links, dates, findings and uncertainties in the task folder. Compare primary sources and verify factual claims. Checkpoint progress and finish with the saved report.',
         code: 'Build or improve [website or project] at [folder]. The desired result is [goal]. Prioritize reliability, then effectiveness, then simplicity. Make small reversible changes, preserve existing behavior, and verify the result with appropriate tests or a browser review. Save the finished project and a concise audit.md with changes, verification and remaining limitations. Checkpoint milestones.'
