@@ -115,6 +115,20 @@ class TextModelAndArchives(unittest.IsolatedAsyncioTestCase):
 
 
 class RestoredModelContext(unittest.TestCase):
+    def test_long_task_keeps_final_user_instructions_and_full_brief_pointer(self):
+        with tempfile.TemporaryDirectory() as td:
+            folder=Path(td)
+            agent=instance(folder)
+            objective='Opening goal. '+('Long reference material. '*200)+'\nFinal direction: report only; do not change files.'
+            common.atomic_json(folder/'task.json',{'objective':objective})
+            agent.contract={'summary':'Opening goal.'}
+            message=agent.initial()['content']
+            self.assertIn('Opening goal.',message)
+            self.assertIn('report only; do not change files.',message)
+            self.assertIn('task_brief',message)
+            self.assertLess(len(message),2200)
+            self.assertEqual(common.read_json(folder/'task.json')['objective'],objective)
+
     def test_text_model_drops_retained_image_inputs_without_mutating_history(self):
         with tempfile.TemporaryDirectory() as td:
             agent = instance(Path(td))

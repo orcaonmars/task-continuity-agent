@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.3 — 2026-11-08
+
+- Preserve final instructions when presenting a long task to the model; keep the complete brief available on disk.
+- Require an exact model selection when a partial name matches multiple models, preventing unintended selection after a restart or connection change.
+- Fix a Windows test cleanup race by waiting for the owned runner to close its logs before removing its temporary folder.
+- Make the README more direct, with recovery behavior, setup and verification evidence upfront.
+- Add three regression tests, bringing coverage to 193 Python tests and 23 interface checks.
+
 ## 1.0.2 — 2026-11-07
 
 - Add a double-click launcher with Python discovery, per-user Python installation through WinGet when needed, dependency installation, validation, configuration, and a Desktop shortcut.

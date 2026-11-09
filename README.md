@@ -6,7 +6,7 @@ I made this because I wanted something for longer local AI tasks, including over
 
 Task Continuity Agent is a Windows app that saves the task and its progress, keeps track of background jobs, and can recover after worker interruptions. You give it a task through a browser interface and check the saved work there.
 
-I've completed an overnight endurance run. In my testing, it usually works, but sometimes gets stuck and needs intervention. It's still experimental, and the model you use makes a difference.
+Built for work that takes more than one model session: the original brief, checkpoints and background-job records stay on disk so a restarted worker can pick up where it left off. I've also completed an overnight endurance run with it.
 
 ![Task Continuity Agent workspace](docs/images/interface.png)
 
@@ -49,11 +49,13 @@ Open **Saved progress & files** for checkpoints and **Open task folder**. Tasks 
 
 Keep the computer powered. Desktop interaction needs Windows signed in and unlocked. Shutdown and power loss end running processes.
 
-## What it checks, and what it doesn't
+## Built to keep track of the work
 
 The app checks required output files, their structure, and recorded verification. Numerical data tasks need a successful tracked calculation or verification job covering the saved outputs. That helps catch unsupported completion claims, but it doesn't prove every answer or algorithm is correct.
 
-The suite contains **190 Python tests and 23 interface checks**. GitHub CI checks Windows with Python 3.11, 3.12, and 3.14, plus known dependency advisories. The [November audit](docs/audit-2026-11.md) includes a failed live trial and what changed afterward. See [release status](RELEASE-STATUS.md) and [Actions](https://github.com/orcaonmars/task-continuity-agent/actions/workflows/validate.yml) for the tested scope and current results. A 50-hour endurance run is still unverified.
+Recovery checks cover worker interruptions, supervisor restarts, temporary model-server outages and background jobs surviving a restart. The suite contains **193 Python tests and 23 interface checks**. GitHub CI checks Windows with Python 3.11, 3.12, and 3.14, plus known dependency advisories. See [release verification](RELEASE-STATUS.md), the [November audit](docs/audit-2026-11.md) and [Actions](https://github.com/orcaonmars/task-continuity-agent/actions/workflows/validate.yml) for the evidence and results for each revision.
+
+Choose a model trained for tool use and describe the result you want clearly. If a task needs your input, its saved progress and job records help you see what happened and resume it. Review important outputs before relying on them; file checks can't establish that every answer is correct.
 
 This runs with your Windows account's permissions; it isn't a sandbox. Keep backups of important files. Models run through your chosen server, but web tools and optional integrations can contact external services. Saved tasks and downloads don't have a total storage quota. See [security and privacy](SECURITY.md).
 
@@ -92,6 +94,6 @@ Node.js is optional for running the interface checks; the app itself doesn't nee
 
 I'm not an experienced developer. I wrote some of the code myself, but AI helped write a large chunk of the code and docs. I've been directing what I need it to do and using AI to work through bugs, tests, and refinements. It's taken a lot of iteration, and I'm still learning.
 
-If you try it, I'd appreciate hearing which model you used, what task you gave it, and where it worked or got stuck. Suggestions and criticism are welcome.
+If you try it, I'd appreciate hearing which model you used and what you built. For bug reports, include what you expected, what happened and the relevant log with private details removed. Suggestions and contributions are welcome.
 
 [MIT licence](LICENSE). Created by [orcaonmars](https://github.com/orcaonmars).

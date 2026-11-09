@@ -17,6 +17,26 @@ import runtime_policy
 
 
 class ModelIdentity(unittest.TestCase):
+    def test_ambiguous_partial_model_name_requires_exact_selection(self):
+        for provider in ('lmstudio', 'openai-compatible'):
+            with self.subTest(provider=provider):
+                cfg={**copy.deepcopy(common.DEFAULT_SETTINGS), 'provider':provider, 'preferred_model':'coder'}
+                response=Mock()
+                response.json.return_value={'models':[
+                    {'key':'coder-small','type':'llm','loaded_instances':[{'id':'small'}]},
+                    {'key':'coder-large','type':'llm','loaded_instances':[{'id':'large'}]}],
+                    'data':[{'id':'coder-small'},{'id':'coder-large'}]}
+                with patch.object(agent,'ACTIVE',None), patch.object(agent,'settings',return_value=cfg), patch.object(agent.requests,'get',return_value=response):
+                    with self.assertRaisesRegex(RuntimeError,'Multiple.*exact'):
+                        agent.model_info()
+
+    def test_exact_model_name_takes_priority_over_partial_matches(self):
+        cfg={**copy.deepcopy(common.DEFAULT_SETTINGS),'provider':'openai-compatible','preferred_model':'coder'}
+        response=Mock()
+        response.json.return_value={'data':[{'id':'coder-large'},{'id':'coder'},{'id':'coder-small'}]}
+        with patch.object(agent,'ACTIVE',None), patch.object(agent,'settings',return_value=cfg), patch.object(agent.requests,'get',return_value=response):
+            self.assertEqual(agent.model_info()['model'],'coder')
+
     def test_explicit_replacement_loads_new_model_without_unloading_saved_model(self):
         with tempfile.TemporaryDirectory() as td:
             task = Path(td)

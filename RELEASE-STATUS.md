@@ -1,14 +1,15 @@
-# Release status — v1.0.2
+# Release status — v1.0.3
 
-Experimental Windows source release, refined locally on 2026-11-07. Repository: [orcaonmars/task-continuity-agent](https://github.com/orcaonmars/task-continuity-agent). Hosted results are recorded in [Actions](https://github.com/orcaonmars/task-continuity-agent/actions/workflows/validate.yml). The [November audit](docs/audit-2026-11.md) separates current evidence from earlier trials and maintainer-reported experience.
+Windows source release, refined locally on 2026-11-08. Repository: [orcaonmars/task-continuity-agent](https://github.com/orcaonmars/task-continuity-agent). Hosted results are recorded in [Actions](https://github.com/orcaonmars/task-continuity-agent/actions/workflows/validate.yml). The [November audit](docs/audit-2026-11.md) records the verification history.
 
 ## Maintainer experience
 
-In my testing, it usually works, but it sometimes gets stuck and needs manual intervention. An overnight endurance run has also been completed in my testing. This describes my experience using it; the specific checks and limitations are documented below.
+I've completed an overnight endurance run. The app preserves task state, checkpoints and job records so work can be inspected and resumed when a worker is interrupted or a task needs input. The specific recovery checks and operating requirements are documented below.
 
 ## Current verification
 
-- The current regression suite contains 190 Python tests and 23 dependency-free Node.js interface checks. Validation includes compilation, dependency consistency, bug-focused Ruff checks, PowerShell parsing, and source/privacy checks; consult Actions for the result on each published revision.
+- The current regression suite contains 193 Python tests and 23 dependency-free Node.js interface checks. Validation includes compilation, dependency consistency, bug-focused Ruff checks, PowerShell parsing, and source/privacy checks; consult Actions for the result on each published revision.
+- The November 8 refinement preserves the ending of long task instructions in the initial model message while retaining access to the complete brief. Ambiguous partial model names now require an exact selection rather than silently choosing the first match. Exact IDs retain priority, and unique partial matches remain supported. Dedicated regressions cover these behaviors.
 - First-run setup adds Python discovery and per-user WinGet installation, repeat-launch checks, an optional LM Studio installer, and an authenticated in-app connection form. Tests cover simulated missing prerequisites and failed installers, preserved configuration, and rejected connection changes during active tasks. Installing prerequisites on a different physical PC remains separate validation.
 - A fresh source directory with spaces was installed into a new virtual environment on this PC. Setup passed its validation, then a repeat launch skipped downloads and preserved modified settings and a task fixture. Browser checks saved connection settings through the real authenticated form and checked desktop and two phone layouts without changing unrelated settings or the task fixture.
 - The November audit reproduced input/output inference defects, missing named outputs, completed-task relabelling, malformed instruction handling, and corrupt task-list metadata, then added targeted regressions. Numerical data tasks now require recorded successful execution covering current outputs. This is stronger evidence than a manual-verification claim, not a proof that arbitrary calculations are correct.
@@ -52,4 +53,4 @@ Atomic state writes have bounded pending fallbacks for Windows locks. File-tool 
 
 ## Release artifacts
 
-Build with `scripts/build.ps1`. The source ZIP is `dist/task-continuity-agent-1.0.2.zip`; `dist/SHA256SUMS.txt` is its authoritative checksum and `dist/release-manifest.json` contains per-file hashes. Upload the reviewed archive contents rather than the installed folder. See [publishing instructions](docs/publishing.md).
+Build with `scripts/build.ps1`. The source ZIP is `dist/task-continuity-agent-1.0.3.zip`; `dist/SHA256SUMS.txt` is its authoritative checksum and `dist/release-manifest.json` contains per-file hashes. Upload the reviewed archive contents rather than the installed folder. See [publishing instructions](docs/publishing.md).

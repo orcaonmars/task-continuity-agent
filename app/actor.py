@@ -568,8 +568,9 @@ class Agent:
         objective = read_json(self.folder / "task.json", {})["objective"]
         if len(objective) > 2200:
             objective = (
-                self.contract.get("summary", objective)[:1600]
-                + "\nFull authoritative brief: task_brief."
+                self.contract.get("summary", objective)[:1000]
+                + "\n[Middle omitted; read task_brief for the full authoritative instructions.]\n"
+                + objective[-1100:]
             )
         return {"role": "user", "content": objective}
 

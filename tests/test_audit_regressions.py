@@ -117,6 +117,12 @@ class TaskStateAndControls(unittest.TestCase):
                     self.assertEqual(json.loads((folder / "arguments.json").read_text()), arguments)
                 finally:
                     work_tools.stop_task_jobs(folder)
+                    # Results precede the runner's final log close on Windows.
+                    # Wait for these owned processes before removing the fixture.
+                    for name in ('runner.json', 'launcher.json'):
+                        process = work_tools.live_process(common.read_json(folder / 'Jobs/calculate' / name, {}))
+                        if process:
+                            process.wait(timeout=5)
 
     def test_only_reported_external_outputs_can_be_opened(self):
         with tempfile.TemporaryDirectory() as td, tempfile.TemporaryDirectory() as external:

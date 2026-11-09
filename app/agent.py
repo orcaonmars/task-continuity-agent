@@ -144,14 +144,11 @@ def model_info():
                 None,
             )
             if not chosen:
-                chosen = next(
-                    (
-                        model
-                        for model in loaded
-                        if preferred in str(model.get("key", "")).lower()
-                    ),
-                    None,
-                )
+                matches = [model for model in loaded
+                           if preferred in str(model.get("key", "")).lower()]
+                if len(matches) > 1:
+                    raise RuntimeError("Multiple loaded models match preferred_model; enter the exact model key or instance ID in Connection setup.")
+                chosen = matches[0] if matches else None
         if preferred and not chosen:
             raise RuntimeError(
                 "The configured preferred_model is not loaded; load it or update config.json."
@@ -197,14 +194,11 @@ def model_info():
         None,
     )
     if not chosen and preferred:
-        chosen = next(
-            (
-                model
-                for model in models
-                if preferred in str(model.get("id", "")).lower()
-            ),
-            None,
-        )
+        matches = [model for model in models
+                   if preferred in str(model.get("id", "")).lower()]
+        if len(matches) > 1:
+            raise RuntimeError("Multiple models match preferred_model; enter the exact model ID in Connection setup.")
+        chosen = matches[0] if matches else None
     if preferred and not chosen:
         raise RuntimeError(
             "The configured preferred_model is not available; load it or update config.json."
